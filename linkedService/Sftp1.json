@@ -1,0 +1,17 @@
+{
+	"name": "Sftp1",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "Sftp",
+		"typeProperties": {
+			"host": "sftp.xxx.com",
+			"port": 22,
+			"skipHostKeyValidation": false,
+			"hostKeyFingerprint": "vvb",
+			"authenticationType": "Basic",
+			"userName": "cghh",
+			"encryptedCredential": "ew0KICAiVmVyc2lvbiI6ICIyMDE3LTExLTMwIiwNCiAgIlByb3RlY3Rpb25Nb2RlIjogIktleSIsDQogICJTZWNyZXRDb250ZW50VHlwZSI6ICJQbGFpbnRleHQiLA0KICAiQ3JlZGVudGlhbElkIjogIkRBVEFGQUNUT1JZQDBDQTI0MUMxLTVCRjMtNEJDQy1BOTBELUIwM0I1NjVBOUNFQ19jMDVhNWM5MC1iY2RkLTRmMGYtOGMyZS1mMTY4Y2JlYmEyYjIiDQp9"
+		}
+	}
+}
