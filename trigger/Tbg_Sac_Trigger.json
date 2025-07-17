@@ -1,0 +1,28 @@
+{
+	"name": "Tbg_Sac_Trigger",
+	"properties": {
+		"annotations": [],
+		"runtimeState": "Stopped",
+		"pipelines": [],
+		"type": "ScheduleTrigger",
+		"typeProperties": {
+			"recurrence": {
+				"frequency": "Month",
+				"interval": 1,
+				"startTime": "2024-02-08T14:27:00",
+				"timeZone": "India Standard Time",
+				"schedule": {
+					"minutes": [
+						0
+					],
+					"hours": [
+						15
+					],
+					"monthDays": [
+						2
+					]
+				}
+			}
+		}
+	}
+}

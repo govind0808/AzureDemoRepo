@@ -1,0 +1,22 @@
+{
+	"name": "Ls_Zarpac_SqlDb",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "SqlServer",
+		"typeProperties": {
+			"connectionString": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "LS_AzureKeyVault",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "az-zarpac-sql-authentication"
+			}
+		},
+		"connectVia": {
+			"referenceName": "EUS1APITVM026",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

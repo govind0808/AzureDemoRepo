@@ -1,0 +1,298 @@
+{
+	"name": "AzureSynapseAnalytics_Table",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_AzureSynapseAnalytics",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"SchemaName": {
+				"type": "string",
+				"defaultValue": "tbg_tdlink"
+			},
+			"TableName": {
+				"type": "string",
+				"defaultValue": "tbg_tdlink_store"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlDWTable",
+		"schema": [
+			{
+				"name": "STDLINXSCD",
+				"type": "varchar"
+			},
+			{
+				"name": "STRANSCD",
+				"type": "varchar"
+			},
+			{
+				"name": "SMODCHGIND",
+				"type": "varchar"
+			},
+			{
+				"name": "SFILEDT",
+				"type": "varchar"
+			},
+			{
+				"name": "SSTATUSIND",
+				"type": "varchar"
+			},
+			{
+				"name": "SNAME",
+				"type": "varchar"
+			},
+			{
+				"name": "SNO",
+				"type": "varchar"
+			},
+			{
+				"name": "SSTREETADD",
+				"type": "varchar"
+			},
+			{
+				"name": "SCITY",
+				"type": "varchar"
+			},
+			{
+				"name": "SST",
+				"type": "varchar"
+			},
+			{
+				"name": "SZIP",
+				"type": "varchar"
+			},
+			{
+				"name": "SPLACENM",
+				"type": "varchar"
+			},
+			{
+				"name": "SSTCD",
+				"type": "varchar"
+			},
+			{
+				"name": "SCNTCD",
+				"type": "varchar"
+			},
+			{
+				"name": "SCNTRYNM",
+				"type": "varchar"
+			},
+			{
+				"name": "STRADECLCD",
+				"type": "varchar"
+			},
+			{
+				"name": "SFORMATCD",
+				"type": "varchar"
+			},
+			{
+				"name": "SNOSTRCD",
+				"type": "varchar"
+			},
+			{
+				"name": "SCHAININD",
+				"type": "varchar"
+			},
+			{
+				"name": "SFILLER1",
+				"type": "varchar"
+			},
+			{
+				"name": "SLAT",
+				"type": "varchar"
+			},
+			{
+				"name": "SLONG",
+				"type": "varchar"
+			},
+			{
+				"name": "SLATLONGCD",
+				"type": "varchar"
+			},
+			{
+				"name": "SBLOCKID",
+				"type": "varchar"
+			},
+			{
+				"name": "SFILLER2",
+				"type": "varchar"
+			},
+			{
+				"name": "SAREACD",
+				"type": "varchar"
+			},
+			{
+				"name": "SPHONENO",
+				"type": "varchar"
+			},
+			{
+				"name": "SFILLER3",
+				"type": "varchar"
+			},
+			{
+				"name": "SANNVOLCD",
+				"type": "varchar"
+			},
+			{
+				"name": "SWKLYVOL",
+				"type": "varchar"
+			},
+			{
+				"name": "SSQFT",
+				"type": "varchar"
+			},
+			{
+				"name": "SFTEMPLOY",
+				"type": "varchar"
+			},
+			{
+				"name": "SNMCHKOUT",
+				"type": "varchar"
+			},
+			{
+				"name": "SFILLER4",
+				"type": "varchar"
+			},
+			{
+				"name": "STDLINXOCD",
+				"type": "varchar"
+			},
+			{
+				"name": "SOWNFAMCD",
+				"type": "varchar"
+			},
+			{
+				"name": "SOWNNM",
+				"type": "varchar"
+			},
+			{
+				"name": "SOWNCITY",
+				"type": "varchar"
+			},
+			{
+				"name": "SOWNST",
+				"type": "varchar"
+			},
+			{
+				"name": "SOWNSTCD",
+				"type": "varchar"
+			},
+			{
+				"name": "SOWNCNTCD",
+				"type": "varchar"
+			},
+			{
+				"name": "SFILLER5",
+				"type": "varchar"
+			},
+			{
+				"name": "STDLINXPCD",
+				"type": "varchar"
+			},
+			{
+				"name": "SSUPFAMCD",
+				"type": "varchar"
+			},
+			{
+				"name": "SSUPNM",
+				"type": "varchar"
+			},
+			{
+				"name": "SSUPCITY",
+				"type": "varchar"
+			},
+			{
+				"name": "SSUPST",
+				"type": "varchar"
+			},
+			{
+				"name": "SSUPSTCD",
+				"type": "varchar"
+			},
+			{
+				"name": "SSUPCNTCD",
+				"type": "varchar"
+			},
+			{
+				"name": "SFILLER6",
+				"type": "varchar"
+			},
+			{
+				"name": "STDLINXGCD",
+				"type": "varchar"
+			},
+			{
+				"name": "SGRPNM",
+				"type": "varchar"
+			},
+			{
+				"name": "SFRANIND",
+				"type": "varchar"
+			},
+			{
+				"name": "SFILLER7",
+				"type": "varchar"
+			},
+			{
+				"name": "SGAS",
+				"type": "varchar"
+			},
+			{
+				"name": "SHIVOLCIG",
+				"type": "varchar"
+			},
+			{
+				"name": "SPHARM",
+				"type": "varchar"
+			},
+			{
+				"name": "SLIQUOR",
+				"type": "varchar"
+			},
+			{
+				"name": "SWINE",
+				"type": "varchar"
+			},
+			{
+				"name": "SBEER",
+				"type": "varchar"
+			},
+			{
+				"name": "SONPREM",
+				"type": "varchar"
+			},
+			{
+				"name": "SFOODTYPE",
+				"type": "varchar"
+			},
+			{
+				"name": "SCLINICS",
+				"type": "varchar"
+			},
+			{
+				"name": "SSNAPWIC",
+				"type": "varchar"
+			},
+			{
+				"name": "SFUTURE1",
+				"type": "varchar"
+			},
+			{
+				"name": "SFILLER8",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": {
+				"value": "@dataset().SchemaName",
+				"type": "Expression"
+			},
+			"table": {
+				"value": "@dataset().TableName",
+				"type": "Expression"
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

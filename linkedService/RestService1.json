@@ -1,0 +1,19 @@
+{
+	"name": "RestService1",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"parameters": {
+			"BASEURL": {
+				"type": "string",
+				"defaultValue": "https://jsonplaceholder.typicode.com/"
+			}
+		},
+		"annotations": [],
+		"type": "RestService",
+		"typeProperties": {
+			"url": "@{linkedService().BASEURL}",
+			"enableServerCertificateValidation": true,
+			"authenticationType": "Anonymous"
+		}
+	}
+}

@@ -1,0 +1,22 @@
+{
+	"name": "LS_AzureSynapseAnalytics",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureSqlDW",
+		"typeProperties": {
+			"connectionString": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "LS_AzureKeyVault",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "Prd-Database-tbg-retail-analytics-dwh-dsqlpool-prod"
+			}
+		},
+		"connectVia": {
+			"referenceName": "EUS1APITVM026",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

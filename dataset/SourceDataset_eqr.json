@@ -1,0 +1,13 @@
+{
+	"name": "SourceDataset_eqr",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureProdSynapseDB_DATA",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlDWTable",
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

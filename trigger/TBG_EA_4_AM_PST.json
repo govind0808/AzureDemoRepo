@@ -1,0 +1,26 @@
+{
+	"name": "TBG_EA_4_AM_PST",
+	"properties": {
+		"description": "for zarpac",
+		"annotations": [],
+		"runtimeState": "Stopped",
+		"pipelines": [],
+		"type": "ScheduleTrigger",
+		"typeProperties": {
+			"recurrence": {
+				"frequency": "Day",
+				"interval": 1,
+				"startTime": "2024-10-15T15:42:00",
+				"timeZone": "Pacific Standard Time",
+				"schedule": {
+					"minutes": [
+						0
+					],
+					"hours": [
+						4
+					]
+				}
+			}
+		}
+	}
+}

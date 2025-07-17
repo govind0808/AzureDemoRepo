@@ -1,0 +1,22 @@
+{
+	"name": "zarpac_5_min",
+	"properties": {
+		"annotations": [],
+		"runtimeState": "Stopped",
+		"pipelines": [],
+		"type": "ScheduleTrigger",
+		"typeProperties": {
+			"recurrence": {
+				"frequency": "Month",
+				"interval": 15,
+				"startTime": "2024-10-10T16:35:00",
+				"timeZone": "Central Standard Time",
+				"schedule": {
+					"monthDays": [
+						1
+					]
+				}
+			}
+		}
+	}
+}

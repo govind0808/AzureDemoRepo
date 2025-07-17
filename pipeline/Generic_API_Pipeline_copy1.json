@@ -1,0 +1,42 @@
+{
+	"name": "Generic_API_Pipeline_copy1",
+	"properties": {
+		"activities": [
+			{
+				"name": "Web1",
+				"type": "WebActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"url": "https://login.microsoftonline.com/a88ab27e-0bb6-497d-9186-0c3c8f4c2280/oauth2/token",
+					"body": "{       \n\"grant_type\": \"client_credentials\"\n}"
+				}
+			}
+		],
+		"variables": {
+			"Config_Index": {
+				"type": "String"
+			},
+			"Year": {
+				"type": "String"
+			},
+			"date": {
+				"type": "String"
+			},
+			"Month": {
+				"type": "String"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-07-16T19:23:05Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

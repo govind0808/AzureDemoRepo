@@ -1,0 +1,25 @@
+{
+	"name": "Tbg_Zarpac_Trigger_Second",
+	"properties": {
+		"annotations": [],
+		"runtimeState": "Stopped",
+		"pipelines": [],
+		"type": "ScheduleTrigger",
+		"typeProperties": {
+			"recurrence": {
+				"frequency": "Day",
+				"interval": 1,
+				"startTime": "2024-08-16T07:33:00",
+				"timeZone": "India Standard Time",
+				"schedule": {
+					"minutes": [
+						30
+					],
+					"hours": [
+						16
+					]
+				}
+			}
+		}
+	}
+}

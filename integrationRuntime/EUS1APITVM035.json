@@ -1,0 +1,7 @@
+{
+	"name": "EUS1APITVM035",
+	"properties": {
+		"type": "SelfHosted",
+		"description": "Production Self-Hosted IR"
+	}
+}

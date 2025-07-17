@@ -1,0 +1,13 @@
+{
+	"name": "Ds_Sqldb_Synapse",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "Ls_Zarpac_SqlDb",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "SqlServerTable",
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

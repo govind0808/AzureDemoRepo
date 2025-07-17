@@ -1,0 +1,11 @@
+{
+	"name": "AzureBlobStorage_landing_to_raw",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureBlobStorage",
+		"typeProperties": {
+			"connectionString": "asdf"
+		}
+	}
+}

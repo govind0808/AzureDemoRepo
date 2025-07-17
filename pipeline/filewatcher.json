@@ -1,0 +1,50 @@
+{
+	"name": "filewatcher",
+	"properties": {
+		"activities": [
+			{
+				"name": "Wait1",
+				"type": "Wait",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"waitTimeInSeconds": 300
+				}
+			},
+			{
+				"name": "Web_Lkp_failure_Email",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Wait1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json"
+					},
+					"url": "https://eus1logicapp-entdata-dev.azurewebsites.net:443/api/emailtrigger/triggers/manual/invoke?api-version=2022-05-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=RFr72iNF9Atp-r4MHlE_699bHKAQWDhe3o5fqRVtM4Y",
+					"body": {
+						"value": "{\n    \"DataFactoryName\":\"@{pipeline().Pipeline}\",\n\t\"ErrorMessage\":\"New file received\",\n\t\"RunId\":\"@{pipeline().RunId}\",\n\t\"pipelineName\":\"@{pipeline().Pipeline}\"\n}",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2025-07-16T19:23:05Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

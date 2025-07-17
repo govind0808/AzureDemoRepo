@@ -1,0 +1,17 @@
+{
+	"name": "Ds_Delta_Lake_Config",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_DeltaLake",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureDatabricksDeltaLakeDataset",
+		"typeProperties": {
+			"database": "tbg_global",
+			"table": "tbg_config"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

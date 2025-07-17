@@ -1,0 +1,103 @@
+{
+	"name": "Email_Alert",
+	"properties": {
+		"activities": [
+			{
+				"name": "SendEmail",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "GetLogicAppURL",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.00:10:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"url": {
+						"value": "@activity('GetLogicAppURL').output.value",
+						"type": "Expression"
+					},
+					"body": {
+						"value": "{\"message\":\"@{pipeline().parameters.ErrorMsg}\", \"notebookName\":\"@{pipeline().parameters.NotebookName}\", \"recipient\":\"@{pipeline().parameters.RecipientEmail}\", \"subject\": \"Pipeline @{pipeline().parameters.PipelineName} @{pipeline().parameters.PipelineStatus} in @{pipeline().parameters.env} at @{convertTimeZone(utcNow(),'UTC','Eastern Standard Time', 'yyyy-MM-dd HH:mm')} EST\", \"pipelineName\": \"@{pipeline().parameters.PipelineName}\", \"status\": \"@{pipeline().parameters.PipelineStatus}\", \"body\": \"\", \"loggerName\": \"\"}",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "GetLogicAppURL",
+				"type": "WebActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.00:10:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "GET",
+					"linkedServices": [
+						{
+							"referenceName": "AzureKeyVault1",
+							"type": "LinkedServiceReference"
+						}
+					],
+					"url": {
+						"value": "@{pipeline().parameters.keyvault_url}secrets/logic-app-url-email-alert?api-version=7.0",
+						"type": "Expression"
+					},
+					"authentication": {
+						"type": "MSI",
+						"resource": "https://vault.azure.net"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"PipelineName": {
+				"type": "string",
+				"defaultValue": "Email_Alert_Test"
+			},
+			"RecipientEmail": {
+				"type": "string",
+				"defaultValue": "kannan.laguduva.govardanan@pwc.com"
+			},
+			"keyvault_url": {
+				"type": "string",
+				"defaultValue": "https://eus1kvt-entdata-dev.vault.azure.net/"
+			},
+			"NotebookName": {
+				"type": "string"
+			},
+			"ErrorMsg": {
+				"type": "string",
+				"defaultValue": "Test_Error_Message"
+			},
+			"env": {
+				"type": "string",
+				"defaultValue": "dev"
+			},
+			"PipelineStatus": {
+				"type": "string",
+				"defaultValue": "Failed"
+			}
+		},
+		"folder": {
+			"name": "Utils"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-07-16T19:23:06Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

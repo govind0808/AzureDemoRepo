@@ -1,0 +1,72 @@
+{
+	"name": "ExportToCSV",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy_eqr",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [
+					{
+						"name": "Source",
+						"value": "."
+					},
+					{
+						"name": "Destination",
+						"value": "pbna//customer_dim_prod.csv"
+					}
+				],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": "SELECT [CUST_ID]\r\n      ,[NME]\r\n      ,[CUR_STAT_CDE]\r\n      ,[CUR_STAT_DESC]\r\n      ,[CUR_STAT_DTE]\r\n      ,[GRP2_LVL_1_ANCSTR_ID]\r\n      ,[GRP2_LVL_1_ANCSTR_NME]\r\n      ,[GRP1_LVL_1_ID]\r\n      ,[GRP1_LVL_1_DESC]\r\n      ,[GRP1_LVL_2_ID]\r\n      ,[GRP1_LVL_2_DESC]\r\n      ,[GRP2_LVL_1_ID]\r\n      ,[GRP2_LVL_1_DESC]\r\n      ,[GRP2_LVL_2_ID]\r\n      ,[GRP2_LVL_2_DESC]\r\n      ,[LOC_PROD_ID]\r\n      ,[DELY_ADR_CITY]\r\n      ,[DELY_ADR_CNTRY_CDE]\r\n      ,[DELY_ADR_STATE]\r\n      ,[DELY_ADR_STRT1]\r\n      ,[DELY_ADR_STRT2]\r\n      ,[DELY_ADR_STRT3]\r\n      ,[DELY_ADR_ZIP]\r\n      ,[BUS_TYPE_CTGY_CDE]\r\n      ,[BUS_TYPE_CTGY_DESC]\r\n      ,[BUS_TYPE_AGGR_CDE]\r\n      ,[BUS_TYPE_AGGR_DESC]\r\n      ,[BUS_TYPE_CDE]\r\n      ,[BUS_TYPE_DESC]\r\n      ,[CHAIN_OWNER_CDE]\r\n      ,[CHAIN_OWNER_DESC]\r\n      ,[CUST_LAST_ACTVTY_DTE]\r\n      ,[CUST_LATUD_NUM]\r\n      ,[CUST_LGTUD_NUM]\r\n      ,[GEO_STAT_DESC]\r\n  FROM [Tbg_Pbna].[TBG_PBNA_Customer_Dim]\r\n  where [CUR_STAT_CDE] in ('A')\r\n  order by [CUST_ID] ",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "DelimitedTextSink",
+						"storeSettings": {
+							"type": "AzureBlobStorageWriteSettings"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextWriteSettings",
+							"quoteAllText": true,
+							"fileExtension": ".txt"
+						}
+					},
+					"enableStaging": false,
+					"validateDataConsistency": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "SourceDataset_eqr",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DestinationDataset_eqr",
+						"type": "DatasetReference"
+					}
+				]
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2025-07-16T19:23:07Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

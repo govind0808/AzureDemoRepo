@@ -1,0 +1,26 @@
+{
+	"name": "TBG_EA_4_30_AM_PST",
+	"properties": {
+		"description": "4:30 AM PST",
+		"annotations": [],
+		"runtimeState": "Stopped",
+		"pipelines": [],
+		"type": "ScheduleTrigger",
+		"typeProperties": {
+			"recurrence": {
+				"frequency": "Day",
+				"interval": 1,
+				"startTime": "2024-12-19T01:17:00",
+				"timeZone": "Pacific Standard Time",
+				"schedule": {
+					"minutes": [
+						30
+					],
+					"hours": [
+						4
+					]
+				}
+			}
+		}
+	}
+}

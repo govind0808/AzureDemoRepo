@@ -1,0 +1,20 @@
+{
+	"name": "Log_Test",
+	"properties": {
+		"activities": [
+			{
+				"name": "Fail",
+				"type": "Fail",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"message": "This is expected to fail",
+					"errorCode": "404"
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2025-07-16T19:23:05Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

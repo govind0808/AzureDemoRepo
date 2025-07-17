@@ -1,0 +1,55 @@
+{
+	"name": "Json_https",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "HttpServer_CommodityPrices",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"relative_url": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "EA_Commodity_datasets"
+		},
+		"annotations": [],
+		"type": "Json",
+		"typeProperties": {
+			"location": {
+				"type": "HttpServerLocation",
+				"relativeUrl": {
+					"value": "@dataset().relative_url",
+					"type": "Expression"
+				}
+			}
+		},
+		"schema": {
+			"type": "object",
+			"properties": {
+				"volume": {
+					"type": "integer"
+				},
+				"lastTime": {
+					"type": "string"
+				},
+				"endDate": {
+					"type": "string"
+				},
+				"marketStrip": {
+					"type": "string"
+				},
+				"change": {
+					"type": "number"
+				},
+				"marketId": {
+					"type": "integer"
+				},
+				"lastPrice": {
+					"type": "number"
+				}
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

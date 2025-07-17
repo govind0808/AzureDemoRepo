@@ -1,0 +1,31 @@
+{
+	"name": "dl_zarpack_raw",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_DeltaLake",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"database": {
+				"type": "string"
+			},
+			"table": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureDatabricksDeltaLakeDataset",
+		"typeProperties": {
+			"database": {
+				"value": "@dataset().database",
+				"type": "Expression"
+			},
+			"table": {
+				"value": "@dataset().table",
+				"type": "Expression"
+			}
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

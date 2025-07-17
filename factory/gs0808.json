@@ -1,0 +1,9 @@
+{
+	"name": "gs0808",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "e93a7e2f-ae54-4877-abbd-3110d5a74446",
+		"tenantId": "796e5d19-e2ba-4a38-b495-66b2a3c5f3a3"
+	}
+}

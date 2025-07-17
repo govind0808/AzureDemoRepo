@@ -1,0 +1,11 @@
+{
+	"name": "LS_AzureBlobStorage_Prod",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureBlobStorage",
+		"typeProperties": {
+			"connectionString": "asdf"
+		}
+	}
+}

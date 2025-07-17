@@ -1,0 +1,11 @@
+{
+	"name": "AzureProdSynapseDB_DATA",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureSqlDW",
+		"typeProperties": {
+			"connectionString": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=eus1tbgrawadlswsprod.sql.azuresynapse.net;Initial Catalog=tbg_retail_analytics_dwh_dsqlpool_prod"
+		}
+	}
+}

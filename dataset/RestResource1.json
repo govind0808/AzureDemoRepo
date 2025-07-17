@@ -1,0 +1,35 @@
+{
+	"name": "RestResource1",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "RestService1",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"BASEURL": {
+					"value": "@dataset().Base_URL",
+					"type": "Expression"
+				}
+			}
+		},
+		"parameters": {
+			"Base_URL": {
+				"type": "string",
+				"defaultValue": "https://jsonplaceholder.typicode.com/"
+			},
+			"Relative_URL": {
+				"type": "string",
+				"defaultValue": "users"
+			}
+		},
+		"annotations": [],
+		"type": "RestResource",
+		"typeProperties": {
+			"relativeUrl": {
+				"value": "@dataset().Relative_URL",
+				"type": "Expression"
+			}
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}
