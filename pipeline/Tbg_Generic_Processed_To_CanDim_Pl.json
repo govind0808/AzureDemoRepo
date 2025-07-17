@@ -1,0 +1,114 @@
+{
+	"name": "Tbg_Generic_Processed_To_CanDim_Pl",
+	"properties": {
+		"activities": [
+			{
+				"name": "Tbg_Processed_To_CanDim",
+				"type": "DatabricksNotebook",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.04:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": {
+						"value": "@concat(pipeline().globalParameters.RepoPath,'/Databricks/Notebooks/Processed_To_Candim/Transform/Processed_to_CanDim')",
+						"type": "Expression"
+					},
+					"baseParameters": {
+						"pipeline_name": {
+							"value": "@pipeline().parameters.pipeline_name",
+							"type": "Expression"
+						},
+						"env": {
+							"value": "@pipeline().parameters.env",
+							"type": "Expression"
+						},
+						"Stage": "Processed_Canonical",
+						"Source": {
+							"value": "@pipeline().parameters.Source",
+							"type": "Expression"
+						},
+						"Repo_Name": {
+							"value": "@pipeline().parameters.Repo_Name",
+							"type": "Expression"
+						},
+						"logger_name": {
+							"value": "@pipeline().parameters.logger_name",
+							"type": "Expression"
+						},
+						"recipient_list": {
+							"value": "@pipeline().parameters.recipient_list",
+							"type": "Expression"
+						},
+						"Is_Adhoc": {
+							"value": "@pipeline().parameters.Is_Adhoc",
+							"type": "Expression"
+						},
+						"Repo_Path": {
+							"value": "@pipeline().globalParameters.RepoPath",
+							"type": "Expression"
+						},
+						"Is_Rerun": {
+							"value": "@pipeline().parameters.Is_Rerun",
+							"type": "Expression"
+						},
+						"Stage3_Threads": {
+							"value": "@pipeline().parameters.Stage3_Threads",
+							"type": "Expression"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureDatabricks1",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"concurrency": 1,
+		"parameters": {
+			"pipeline_name": {
+				"type": "string"
+			},
+			"env": {
+				"type": "string"
+			},
+			"Stage": {
+				"type": "string"
+			},
+			"Source": {
+				"type": "string"
+			},
+			"Repo_Name": {
+				"type": "string"
+			},
+			"logger_name": {
+				"type": "string"
+			},
+			"recipient_list": {
+				"type": "string"
+			},
+			"Is_Adhoc": {
+				"type": "string"
+			},
+			"Repo_Path": {
+				"type": "string"
+			},
+			"Is_Rerun": {
+				"type": "string"
+			},
+			"Stage3_Threads": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "Generic"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:03Z"
+	}
+}

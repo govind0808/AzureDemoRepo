@@ -1,0 +1,80 @@
+{
+	"name": "Tbg_Generic_Archive_Files",
+	"properties": {
+		"activities": [
+			{
+				"name": "Tbg_Archive_Files",
+				"type": "DatabricksNotebook",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.04:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 60,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": {
+						"value": "@concat(pipeline().globalParameters.RepoPath,'/Databricks/Notebooks/Archive_Files/Tbg_Archive_Files')",
+						"type": "Expression"
+					},
+					"baseParameters": {
+						"Source": {
+							"value": "@pipeline().parameters.Source",
+							"type": "Expression"
+						},
+						"pipeline_name": {
+							"value": "@pipeline().parameters.pipeline_name",
+							"type": "Expression"
+						},
+						"Stage": "Archive",
+						"env": {
+							"value": "@pipeline().parameters.env",
+							"type": "Expression"
+						},
+						"Repo_Name": {
+							"value": "@pipeline().parameters.Repo_Name",
+							"type": "Expression"
+						},
+						"recipient_list": {
+							"value": "@pipeline().parameters.recipient_list",
+							"type": "Expression"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureDatabricks1",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"concurrency": 1,
+		"parameters": {
+			"Source": {
+				"type": "string"
+			},
+			"pipeline_name": {
+				"type": "string"
+			},
+			"env": {
+				"type": "string"
+			},
+			"Stage": {
+				"type": "string",
+				"defaultValue": "Archive"
+			},
+			"Repo_Name": {
+				"type": "string"
+			},
+			"recipient_list": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "Generic"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:03Z"
+	}
+}

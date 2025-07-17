@@ -1,0 +1,545 @@
+{
+	"name": "Tbg_Generic_Master_Pl",
+	"properties": {
+		"activities": [
+			{
+				"name": "Source_Or_Landing_To_Raw",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Tbg_Generic_Source_Or_Landing_To_Raw_Pl",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"Repo_Name": {
+							"value": "@pipeline().parameters.Repo_Name",
+							"type": "Expression"
+						},
+						"Source": {
+							"value": "@pipeline().parameters.Source",
+							"type": "Expression"
+						},
+						"logger_name": {
+							"value": "@pipeline().parameters.logger_name",
+							"type": "Expression"
+						},
+						"recipient_list": {
+							"value": "@pipeline().parameters.recipient_list",
+							"type": "Expression"
+						},
+						"Stage": "Source_Or_Landing_Raw",
+						"Is_Adhoc": {
+							"value": "@pipeline().parameters.Is_Adhoc",
+							"type": "Expression"
+						},
+						"env": {
+							"value": "@pipeline().parameters.env",
+							"type": "Expression"
+						},
+						"pipeline_name": {
+							"value": "@pipeline().parameters.pipeline_name",
+							"type": "Expression"
+						},
+						"cutoff_time": {
+							"value": "@pipeline().parameters.cutoff_time",
+							"type": "Expression"
+						},
+						"Is_Rerun": {
+							"value": "@pipeline().parameters.Is_Rerun",
+							"type": "Expression"
+						},
+						"Stage1_Threads": {
+							"value": "@pipeline().parameters.Stage1_Threads",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Raw_To_Processed",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Source_Or_Landing_To_Raw",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Tbg_Generic_Raw_To_Processed_Pl",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"Source": {
+							"value": "@pipeline().parameters.Source",
+							"type": "Expression"
+						},
+						"Stage": "Raw_Processed",
+						"env": {
+							"value": "@pipeline().parameters.env",
+							"type": "Expression"
+						},
+						"Repo_Name": {
+							"value": "@pipeline().parameters.Repo_Name",
+							"type": "Expression"
+						},
+						"logger_name": {
+							"value": "@pipeline().parameters.logger_name",
+							"type": "Expression"
+						},
+						"pipeline_name": {
+							"value": "@pipeline().parameters.pipeline_name",
+							"type": "Expression"
+						},
+						"recipient_list": {
+							"value": "@pipeline().parameters.recipient_list",
+							"type": "Expression"
+						},
+						"Is_Adhoc": {
+							"value": "@pipeline().parameters.Is_Adhoc",
+							"type": "Expression"
+						},
+						"Repo_Path": {
+							"value": "@pipeline().globalParameters.RepoPath",
+							"type": "Expression"
+						},
+						"Is_Rerun": {
+							"value": "@pipeline().parameters.Is_Rerun",
+							"type": "Expression"
+						},
+						"Stage2_Threads": {
+							"value": "@pipeline().parameters.Stage2_Threads",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Processed_To_CanDim",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Raw_To_Processed",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Tbg_Generic_Processed_To_CanDim_Pl",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"pipeline_name": {
+							"value": "@pipeline().parameters.pipeline_name",
+							"type": "Expression"
+						},
+						"env": {
+							"value": "@pipeline().parameters.env",
+							"type": "Expression"
+						},
+						"Stage": "Processed_Canonical",
+						"Source": {
+							"value": "@pipeline().parameters.Source",
+							"type": "Expression"
+						},
+						"Repo_Name": {
+							"value": "@pipeline().parameters.Repo_Name",
+							"type": "Expression"
+						},
+						"logger_name": {
+							"value": "@pipeline().parameters.logger_name",
+							"type": "Expression"
+						},
+						"recipient_list": {
+							"value": "@pipeline().parameters.recipient_list",
+							"type": "Expression"
+						},
+						"Is_Adhoc": {
+							"value": "@pipeline().parameters.Is_Adhoc",
+							"type": "Expression"
+						},
+						"Repo_Path": {
+							"value": "@pipeline().globalParameters.RepoPath",
+							"type": "Expression"
+						},
+						"Is_Rerun": {
+							"value": "@pipeline().parameters.Is_Rerun",
+							"type": "Expression"
+						},
+						"Stage3_Threads": {
+							"value": "@pipeline().parameters.Stage3_Threads",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "CanDim_To_Synapse",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Processed_To_CanDim",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Tbg_Generic_CanDim_To_Synapse_Pl",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"pipeline_name": {
+							"value": "@pipeline().parameters.pipeline_name",
+							"type": "Expression"
+						},
+						"env": {
+							"value": "@pipeline().parameters.env",
+							"type": "Expression"
+						},
+						"Stage": "Canonical_Published",
+						"Source": {
+							"value": "@pipeline().parameters.Source",
+							"type": "Expression"
+						},
+						"Synapse_Url_Secret_Name": {
+							"value": "@pipeline().parameters.Synapse_Url_Secret_Name",
+							"type": "Expression"
+						},
+						"ADLS_Storage_Key_Secret_Name": {
+							"value": "@pipeline().parameters.ADLS_Storage_Key_Secret_Name",
+							"type": "Expression"
+						},
+						"Temp_Dir": {
+							"value": "@pipeline().globalParameters.TempDir",
+							"type": "Expression"
+						},
+						"Repo_Name": {
+							"value": "@pipeline().parameters.Repo_Name",
+							"type": "Expression"
+						},
+						"ADLS_Storage_Name": {
+							"value": "@pipeline().globalParameters.AdlsStorageName",
+							"type": "Expression"
+						},
+						"logger_name": {
+							"value": "@pipeline().parameters.logger_name",
+							"type": "Expression"
+						},
+						"recipient_list": {
+							"value": "@pipeline().parameters.recipient_list",
+							"type": "Expression"
+						},
+						"Published_Db_Name": {
+							"value": "@pipeline().parameters.Published_Db_Name",
+							"type": "Expression"
+						},
+						"Is_Adhoc": {
+							"value": "@pipeline().parameters.Is_Adhoc",
+							"type": "Expression"
+						},
+						"Repo_Path": {
+							"value": "@pipeline().globalParameters.RepoPath",
+							"type": "Expression"
+						},
+						"Is_Rerun": {
+							"value": "@pipeline().parameters.Is_Rerun",
+							"type": "Expression"
+						},
+						"Stage4_Threads": {
+							"value": "@pipeline().parameters.Stage4_Threads",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Archive_Files",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "CanDim_To_Synapse",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Tbg_Generic_Archive_Files",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"Source": {
+							"value": "@pipeline().parameters.Source",
+							"type": "Expression"
+						},
+						"pipeline_name": {
+							"value": "@pipeline().parameters.pipeline_name",
+							"type": "Expression"
+						},
+						"env": {
+							"value": "@pipeline().parameters.env",
+							"type": "Expression"
+						},
+						"Stage": "Archive",
+						"Repo_Name": {
+							"value": "@pipeline().parameters.Repo_Name",
+							"type": "Expression"
+						},
+						"recipient_list": {
+							"value": "@pipeline().parameters.recipient_list",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Complete_batchid",
+				"type": "DatabricksNotebook",
+				"dependsOn": [
+					{
+						"activity": "Processed_To_CanDim",
+						"dependencyConditions": [
+							"Failed"
+						]
+					},
+					{
+						"activity": "Raw_To_Processed",
+						"dependencyConditions": [
+							"Failed"
+						]
+					},
+					{
+						"activity": "Source_Or_Landing_To_Raw",
+						"dependencyConditions": [
+							"Failed"
+						]
+					},
+					{
+						"activity": "CanDim_To_Synapse",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": {
+						"value": "@concat(pipeline().globalParameters.RepoPath,'/Databricks/Notebooks/Utils/batchid_Rerun_handler')",
+						"type": "Expression"
+					},
+					"baseParameters": {
+						"Batch_Status": {
+							"value": "End",
+							"type": "Expression"
+						},
+						"Source": {
+							"value": "@pipeline().parameters.Source",
+							"type": "Expression"
+						},
+						"logger_name": {
+							"value": "@pipeline().parameters.logger_name",
+							"type": "Expression"
+						},
+						"recipient_list": {
+							"value": "@pipeline().parameters.recipient_list",
+							"type": "Expression"
+						},
+						"Is_Rerun": {
+							"value": "@pipeline().parameters.Is_Rerun",
+							"type": "Expression"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureDatabricks1",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Gather_Table_Stats",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Archive_Files",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[prc_syndp_Update_stats]",
+					"storedProcedureParameters": {
+						"Src_Schema_Name": {
+							"value": {
+								"value": "@pipeline().parameters.Published_Db_Name",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSynapseAnalytics_PROD",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "EA_Daily_Workflow_Trigger",
+				"type": "DatabricksNotebook",
+				"dependsOn": [
+					{
+						"activity": "Archive_Files",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": {
+						"value": "@concat(pipeline().globalParameters.RepoPath,'/Databricks/Notebooks/Utils/ea_trigger_databricks_workflow')",
+						"type": "Expression"
+					},
+					"baseParameters": {
+						"env": {
+							"value": "@pipeline().parameters.env",
+							"type": "Expression"
+						},
+						"Source": {
+							"value": "@pipeline().parameters.Source",
+							"type": "Expression"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureDatabricks1",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"Source": {
+				"type": "string"
+			},
+			"env": {
+				"type": "string"
+			},
+			"recipient_list": {
+				"type": "string"
+			},
+			"Repo_Name": {
+				"type": "string"
+			},
+			"pipeline_name": {
+				"type": "string"
+			},
+			"logger_name": {
+				"type": "string"
+			},
+			"Published_Db_Name": {
+				"type": "string"
+			},
+			"ADLS_Storage_Name": {
+				"type": "string"
+			},
+			"Synapse_Url_Secret_Name": {
+				"type": "string"
+			},
+			"ADLS_Storage_Key_Secret_Name": {
+				"type": "string"
+			},
+			"Temp_Dir": {
+				"type": "string"
+			},
+			"Is_Adhoc": {
+				"type": "string"
+			},
+			"Repo_Path": {
+				"type": "string"
+			},
+			"cutoff_time": {
+				"type": "string"
+			},
+			"Is_Rerun": {
+				"type": "string"
+			},
+			"Stage1_Threads": {
+				"type": "string"
+			},
+			"Stage2_Threads": {
+				"type": "string"
+			},
+			"Stage3_Threads": {
+				"type": "string"
+			},
+			"Stage4_Threads": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"File_Status": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Generic"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:12Z"
+	}
+}
