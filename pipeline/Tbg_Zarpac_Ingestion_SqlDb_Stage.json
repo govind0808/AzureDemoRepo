@@ -1,0 +1,746 @@
+{
+	"name": "Tbg_Zarpac_Ingestion_SqlDb_Stage",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy_SqlDb_Stg",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Sp_Truncate_Stage_Table",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"sqlReaderQuery": {
+							"value": "@concat('select * from ',pipeline().parameters.SourceSchemaName,'.',pipeline().parameters.SourceTable,' where ',pipeline().parameters.Col_Val,' > ','''',variables('Config_Last_Upd_Dtm'),'''')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "SqlDWSink",
+						"allowCopyCommand": true
+					},
+					"enableStaging": true,
+					"stagingSettings": {
+						"linkedServiceName": {
+							"referenceName": "AzureBlobStorage1",
+							"type": "LinkedServiceReference"
+						},
+						"path": {
+							"value": "@concat(pipeline().globalParameters.SourceContainer, '/Tropicana/Log')",
+							"type": "Expression"
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "Ds_Sqldb_Synapse1",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "AzureSynapseAnalytics_Table1",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.SchemaName",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.StageTable",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "Sp_Truncate_Stage_Table",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Lookup_Row_Last_Updt_Dtm",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[sp_truncate_table]",
+					"storedProcedureParameters": {
+						"schema_name": {
+							"value": {
+								"value": "@pipeline().parameters.SchemaName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"table_name": {
+							"value": {
+								"value": "@pipeline().parameters.StageTable",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSynapseAnalytics_PROD",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Set_Target_Row_Count",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Copy_SqlDb_Stg",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Target_Row_Count",
+					"value": {
+						"value": "@string(activity('Copy_SqlDb_Stg').output.rowsCopied)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Source_Row_Count",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Copy_SqlDb_Stg",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Source_Row_Count",
+					"value": {
+						"value": "@string(activity('Copy_SqlDb_Stg').output.rowsRead)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Error_Message",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Copy_SqlDb_Stg",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Error_Message",
+					"value": {
+						"value": "@activity('Copy_SqlDb_Stg').output.errors[0].Message",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Error_Code",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Copy_SqlDb_Stg",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Error_Code",
+					"value": {
+						"value": "@string(activity('Copy_SqlDb_Stg').StatusCode)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_File_Name",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Copy_SqlDb_Stg",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "File_Name",
+					"value": "ZARPAC"
+				}
+			},
+			{
+				"name": "Sp_Create_Stagelayer_Failed_Ingestion_Auditlog",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Set_Error_Message",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_Error_Code",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_File_Name",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[sp_create_ingestion_auditlog]",
+					"storedProcedureParameters": {
+						"IngestionEndTime": {
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"IngestionStartTime": {
+							"value": {
+								"value": "@pipeline().TriggerTime",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"PipelineRunId": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceName": {
+							"value": {
+								"value": "@pipeline().parameters.SourceTable",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceRowCount": {
+							"value": {
+								"value": "0",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"SourceType": {
+							"value": {
+								"value": "@pipeline().parameters.Sourcetype",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"Status": {
+							"value": {
+								"value": "Failed",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetName": {
+							"value": {
+								"value": "@pipeline().parameters.StageTable",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetRowCount": {
+							"value": {
+								"value": "0",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TargetType": {
+							"value": {
+								"value": "Stage Layer",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"MasterPipelineId": {
+							"value": {
+								"value": "@pipeline().parameters.Master_Pipeline_Id",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"MasterPipelineName": {
+							"value": {
+								"value": "@pipeline().parameters.Master_Pipeline_Name",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"PipelineName": {
+							"value": {
+								"value": "@pipeline().Pipeline",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"StatusMessage": {
+							"value": {
+								"value": "@variables('Error_Message')",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"ErrorCode": {
+							"value": {
+								"value": "@variables('Error_Code')",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSynapseAnalytics_PROD",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Sp_Create_Stagelayer_Success_Ingestion_Auditlog",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Set_Target_Row_Count",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_Source_Row_Count",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[sp_create_ingestion_auditlog]",
+					"storedProcedureParameters": {
+						"IngestionEndTime": {
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"IngestionStartTime": {
+							"value": {
+								"value": "@pipeline().TriggerTime",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"PipelineRunId": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceName": {
+							"value": {
+								"value": "@pipeline().parameters.SourceTable",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceRowCount": {
+							"value": {
+								"value": "@int(variables('Source_Row_Count'))",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"SourceType": {
+							"value": {
+								"value": "@pipeline().parameters.Sourcetype",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"Status": {
+							"value": {
+								"value": "Completed",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetName": {
+							"value": {
+								"value": "@pipeline().parameters.StageTable",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetRowCount": {
+							"value": {
+								"value": "@int(variables('Target_Row_Count'))",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TargetType": {
+							"value": {
+								"value": "Stage Layer",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"MasterPipelineId": {
+							"value": {
+								"value": "@pipeline().parameters.Master_Pipeline_Id",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"MasterPipelineName": {
+							"value": {
+								"value": "@pipeline().parameters.Master_Pipeline_Name",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"PipelineName": {
+							"value": {
+								"value": "@pipeline().Pipeline",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"StatusMessage": {
+							"value": null,
+							"type": "String"
+						},
+						"ErrorCode": {
+							"value": null,
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSynapseAnalytics_PROD",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Lookup_Row_Last_Updt_Dtm",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Set_Config_Last_Upd_Dtm",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"sqlReaderQuery": {
+							"value": "@concat('select max(',pipeline().parameters.Col_Val,') as max from ',pipeline().parameters.SourceSchemaName,'.',pipeline().parameters.SourceTable)",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "Ds_Sqldb_Synapse1",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "Fail_Zarpac_Server_To_Stg",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "Failure_Mail",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": "Data loading failed from Zarpac Server to Staging",
+					"errorCode": "101"
+				}
+			},
+			{
+				"name": "Failure_Mail",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Sp_Create_Stagelayer_Failed_Ingestion_Auditlog",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"url": {
+						"value": "@pipeline().globalParameters.LogicApp_generic_pl_failure_email",
+						"type": "Expression"
+					},
+					"body": {
+						"value": "{\n    \"Environment\":\"@{pipeline().globalParameters.Environment}\",\n\t\"DataFactoryName\":\"@{pipeline().Pipeline}\",\n\t\"ErrorMessage\":\"@{variables('Error_Message')}\",\n\t\"RunId\":\"@{pipeline().RunId}\",\n\t\"pipelineName\":\"@{pipeline().Pipeline}\",\n\t\"SourceType\":\"@{pipeline().parameters.Sourcetype}\",\n    \"FileName\":\"@{pipeline().parameters.StageTable}\"\n}\n",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Lookup_Config_Last_Upd_Dtm",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('select LastUpdDtm from ',pipeline().parameters.Config_Schema_Name,'.',pipeline().parameters.Config_Table_Name,' where Id = ',pipeline().parameters.Id)",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSynapseAnalytics_Table1",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.Config_Schema_Name",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.Config_Table_Name",
+								"type": "Expression"
+							}
+						}
+					}
+				}
+			},
+			{
+				"name": "Set_Config_Last_Upd_Dtm",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Lookup_Config_Last_Upd_Dtm",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Config_Last_Upd_Dtm",
+					"value": {
+						"value": "@activity('Lookup_Config_Last_Upd_Dtm').output.firstRow.LastUpdDtm",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"Master_Pipeline_name": {
+				"type": "string",
+				"defaultValue": "abc"
+			},
+			"Master_Pipeline_id": {
+				"type": "string",
+				"defaultValue": "123"
+			},
+			"SourceSchemaName": {
+				"type": "string",
+				"defaultValue": "Zarpac_Central"
+			},
+			"SourceTable": {
+				"type": "string",
+				"defaultValue": "Tbg_Zarpac_Filler_Rates_Table"
+			},
+			"StageTable": {
+				"type": "string",
+				"defaultValue": "Tbg_Stg_Zarpac_Filler_Rates_Table"
+			},
+			"SchemaName": {
+				"type": "string",
+				"defaultValue": "Tbg_Zarpac"
+			},
+			"Sourcetype": {
+				"type": "string",
+				"defaultValue": "ZARPAC_CENTRAL"
+			},
+			"Id": {
+				"type": "string",
+				"defaultValue": "4004"
+			},
+			"Config_Schema_Name": {
+				"type": "string",
+				"defaultValue": "Tbg_Config"
+			},
+			"Config_Table_Name": {
+				"type": "string",
+				"defaultValue": "Tbg_Source_Ingestion_Config"
+			},
+			"Col_Val": {
+				"type": "string",
+				"defaultValue": "FILLR_RT_MEASMT_STRT_DT"
+			}
+		},
+		"variables": {
+			"Start_Date": {
+				"type": "String"
+			},
+			"Master_Pipeine_Name": {
+				"type": "String"
+			},
+			"Master_Pipeline_Id": {
+				"type": "String"
+			},
+			"End_Date": {
+				"type": "String"
+			},
+			"Target_Row_Count": {
+				"type": "String"
+			},
+			"Source_Row_Count": {
+				"type": "String"
+			},
+			"Error_Message": {
+				"type": "String"
+			},
+			"Error_Code": {
+				"type": "String"
+			},
+			"File_Name": {
+				"type": "String"
+			},
+			"Config_Last_Upd_Dtm": {
+				"type": "String"
+			},
+			"count": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Zarpac"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:06Z"
+	}
+}

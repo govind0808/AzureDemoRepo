@@ -1,0 +1,822 @@
+{
+	"name": "Tbg_Zarpac_Generic_Ingestion",
+	"properties": {
+		"activities": [
+			{
+				"name": "Set_Master_Pipeine_Name",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Update_Run_Status_And_Start_Date",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Master_Pipeine_Name",
+					"value": {
+						"value": "@pipeline().Pipeline",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Master_Pipeline_Id",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Update_Run_Status_And_Start_Date",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Master_Pipeline_Id",
+					"value": {
+						"value": "@pipeline().RunId",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Start_Date",
+				"description": "",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Check_If_Full_Or_Adhoc_Run",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Start_Date",
+					"value": {
+						"value": "@formatDateTime(utcNow(),'yyyy-MM-dd HH:mm:ss.mmm')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Get_Id_For_All_Source_Entries",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Set_Start_Date",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('select distinct id, sourceType, SchemaName, TableName, StageTable, StoredProcName, LastUpdDtm, SourceSchemaName, SourceTable,Columnmapping from ',pipeline().parameters.Config_Schema_Name,'.',pipeline().parameters.Config_Table_Name,' ',variables('Zarpac_Sourcetype_Query') )",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSynapseAnalytics_Table1",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.Config_Schema_Name",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.Config_Table_Name",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Set_End_Date",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "For_Each_Entry",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "End_Date",
+					"value": {
+						"value": "@formatDateTime(utcNow(),'yyyy-MM-dd HH:mm:ss.mmm')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Update_Run_Status_And_Start_Date",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get_Id_For_All_Source_Entries",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get_Id_For_All_Source_Entries').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Sp_Upd_Run_Status_As_Running",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[sp_upd_run_status]",
+								"storedProcedureParameters": {
+									"sourcetype": {
+										"value": {
+											"value": "@item().SourceType",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"id": {
+										"value": {
+											"value": "@item().id",
+											"type": "Expression"
+										},
+										"type": "Int16"
+									},
+									"run_status": {
+										"value": {
+											"value": "Running",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics_PROD",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Sp_Udp_Start_Date",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Sp_Upd_Run_Status_As_Running",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[sp_upd_start_end_date]",
+								"storedProcedureParameters": {
+									"sourcetype": {
+										"value": {
+											"value": "@item().SourceType",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"start_date": {
+										"value": {
+											"value": "@variables('Start_date')",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"end_date": {
+										"value": {
+											"value": "@formatDateTime('9999-12-31','yyyy-MM-dd HH:mm:ss.mmm')",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"id": {
+										"value": {
+											"value": "@item().id",
+											"type": "Expression"
+										},
+										"type": "Int16"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics_PROD",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Update_Run_Status_And_End_Date",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Set_End_Date",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get_Id_For_All_Source_Entries').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Sp_Upd_Run_Status_As_Completed",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[sp_upd_run_status]",
+								"storedProcedureParameters": {
+									"sourcetype": {
+										"value": {
+											"value": "@item().SourceType",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"id": {
+										"value": {
+											"value": "@item().id",
+											"type": "Expression"
+										},
+										"type": "Int16"
+									},
+									"run_status": {
+										"value": {
+											"value": "Completed",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics_PROD",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Sp_Udp_End_Date",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Sp_Upd_Run_Status_As_Completed",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[sp_upd_start_end_date]",
+								"storedProcedureParameters": {
+									"sourcetype": {
+										"value": {
+											"value": "@item().SourceType",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"start_date": {
+										"value": {
+											"value": "@variables('Start_date')",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"end_date": {
+										"value": {
+											"value": "@variables('End_Date')",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"id": {
+										"value": {
+											"value": "@item().id",
+											"type": "Expression"
+										},
+										"type": "Int16"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics_PROD",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Update_Run_Status_As_Failed",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Set_End_Date",
+						"dependencyConditions": [
+							"Skipped"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get_Id_For_All_Source_Entries').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Sp_Upd_Run_Status_Failed",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[sp_upd_run_status]",
+								"storedProcedureParameters": {
+									"sourcetype": {
+										"value": {
+											"value": "@item().SourceType",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"id": {
+										"value": {
+											"value": "@item().id",
+											"type": "Expression"
+										},
+										"type": "Int16"
+									},
+									"run_status": {
+										"value": {
+											"value": "Failed",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics_PROD",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "For_Each_Entry",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Set_Master_Pipeine_Name",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_Master_Pipeline_Id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get_Id_For_All_Source_Entries').output.value",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"activities": [
+						{
+							"name": "Tbg_Zarpac_Ingestion_Stage_Publish",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "Tbg_Zarpac_Ingestion_SqlDb_Stage",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Tbg_Zarpac_Ingestion_Stage_Publish",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Sourcetype": {
+										"value": "@item().SourceType",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Id": {
+										"value": "@variables('Master_Pipeline_Id')",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Name": {
+										"value": "@variables('Master_Pipeine_Name')",
+										"type": "Expression"
+									},
+									"SchemaName": {
+										"value": "@item().SchemaName",
+										"type": "Expression"
+									},
+									"StageTable": {
+										"value": "@item().StageTable",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@item().TableName",
+										"type": "Expression"
+									},
+									"StoredProcName": {
+										"value": "@item().StoredProcName",
+										"type": "Expression"
+									},
+									"Config_Schema_Name": {
+										"value": "@pipeline().parameters.Config_Schema_Name",
+										"type": "Expression"
+									},
+									"Config_Table_Name": {
+										"value": "@pipeline().parameters.Config_Table_Name",
+										"type": "Expression"
+									},
+									"Id": {
+										"value": "@item().Id",
+										"type": "Expression"
+									},
+									"SourceSchemaName": {
+										"value": "@item().SourceSchemaName",
+										"type": "Expression"
+									},
+									"SourceTable": {
+										"value": "@item().SourceTable",
+										"type": "Expression"
+									},
+									"Col_Val": {
+										"value": "@item().Columnmapping",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Tbg_Zarpac_Ingestion_SqlDb_Stage",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Tbg_Zarpac_Ingestion_SqlDb_Stage",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Master_Pipeline_name": {
+										"value": "@pipeline().Pipeline",
+										"type": "Expression"
+									},
+									"Master_Pipeline_id": {
+										"value": "@pipeline().RunId",
+										"type": "Expression"
+									},
+									"SourceSchemaName": {
+										"value": "@item().SourceSchemaName",
+										"type": "Expression"
+									},
+									"SourceTable": {
+										"value": "@item().SourceTable",
+										"type": "Expression"
+									},
+									"StageTable": {
+										"value": "@item().StageTable",
+										"type": "Expression"
+									},
+									"SchemaName": {
+										"value": "@item().SchemaName",
+										"type": "Expression"
+									},
+									"Sourcetype": {
+										"value": "@item().SourceType",
+										"type": "Expression"
+									},
+									"Id": {
+										"value": "@item().Id",
+										"type": "Expression"
+									},
+									"Config_Schema_Name": {
+										"value": "@pipeline().parameters.Config_Schema_Name",
+										"type": "Expression"
+									},
+									"Config_Table_Name": {
+										"value": "@pipeline().parameters.Config_Table_Name",
+										"type": "Expression"
+									},
+									"Col_Val": {
+										"value": "@item().Columnmapping",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Success_Email",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Update_Run_Status_And_End_Date",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json"
+					},
+					"url": "https://eus1logicapp-entdata-dev.azurewebsites.net:443/api/generic_pl_success_email/triggers/manual/invoke?api-version=2022-05-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=8JDN-ED9ifSaHJ2b_zQq1VP2Q_Rrm2HYD6qgWb7JcLU",
+					"body": {
+						"value": "{\n    \"Environment\":\"@{pipeline().globalParameters.Environment}\",\n    \"SourceType\":\"@{variables('SourceType')}\"\n}\n\n",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Get_Adhoc_Flag_Details_Counts",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('select count(*) as record_count from  ', pipeline().parameters.Config_Schema_Name,'.',pipeline().parameters.Config_Table_Name, '  where sourcetype = ''ZARPAC_CENTRAL'' and LoadType = ''Incremental'' and adhoc_flag = ''Y'';')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSynapseAnalytics_Table1",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.Config_Schema_Name",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.Config_Table_Name",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Check_If_Full_Or_Adhoc_Run",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Get_Adhoc_Flag_Details_Counts",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(int(activity('Get_Adhoc_Flag_Details_Counts').output.value[0].record_count),0)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Set_Full_Run_Query",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Zarpac_Sourcetype_Query",
+								"value": {
+									"value": "WHERE sourcetype like 'ZARPAC_CENTRAL' and LoadType = 'Incremental' AND Master_run_flag = 'Y';",
+									"type": "Expression"
+								}
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Set_Adhoc_Run_Query",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Zarpac_Sourcetype_Query",
+								"value": {
+									"value": "WHERE sourcetype = 'ZARPAC_CENTRAL' and LoadType = 'Incremental' AND adhoc_flag = 'Y';",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"Config_Schema_Name": {
+				"type": "string",
+				"defaultValue": "Tbg_Config"
+			},
+			"Config_Table_Name": {
+				"type": "string",
+				"defaultValue": "Tbg_Source_Ingestion_Config"
+			}
+		},
+		"variables": {
+			"Start_Date": {
+				"type": "String"
+			},
+			"Master_Pipeine_Name": {
+				"type": "String"
+			},
+			"Master_Pipeline_Id": {
+				"type": "String"
+			},
+			"End_Date": {
+				"type": "String"
+			},
+			"Target_Row_Count": {
+				"type": "String"
+			},
+			"Source_Row_Count": {
+				"type": "String"
+			},
+			"Error_Message": {
+				"type": "String"
+			},
+			"Error_Code": {
+				"type": "String"
+			},
+			"File_Name": {
+				"type": "String"
+			},
+			"SchemaName": {
+				"type": "String"
+			},
+			"TableName": {
+				"type": "String"
+			},
+			"StageTable": {
+				"type": "String"
+			},
+			"Config_Last_Upd_Dtm": {
+				"type": "String"
+			},
+			"SourceType": {
+				"type": "String",
+				"defaultValue": "ZARPAC_CENTRAL"
+			},
+			"count": {
+				"type": "String"
+			},
+			"Zarpac_Sourcetype_Query": {
+				"type": "String"
+			},
+			"Config_Last_Updt_Dtm": {
+				"type": "String"
+			},
+			"Col_Val": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Zarpac"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:09Z"
+	}
+}

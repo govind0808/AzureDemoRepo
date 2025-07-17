@@ -1,0 +1,12 @@
+{
+	"name": "Ds_Sqldb_Synapse1",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "Ls_Zarpac_SqlDb",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "SqlServerTable",
+		"schema": []
+	}
+}

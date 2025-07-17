@@ -1,0 +1,719 @@
+{
+	"name": "Tbg_Zarpac_Ingestion_Stage_Publish",
+	"properties": {
+		"activities": [
+			{
+				"name": "Sp_Incremental_Load_From_Stage_To_Publish",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Set_Source_Row_Count",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": {
+						"value": "@pipeline().parameters.StoredProcName",
+						"type": "Expression"
+					},
+					"storedProcedureParameters": {
+						"source": {
+							"value": "ZARPAC",
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSynapseAnalytics_PROD",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Sp_Create_Publishedlayer_Success_Ingestion_Auditlog",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Set_Target_Row_Count",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[sp_create_ingestion_auditlog]",
+					"storedProcedureParameters": {
+						"IngestionEndTime": {
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"IngestionStartTime": {
+							"value": {
+								"value": "@pipeline().TriggerTime",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"PipelineRunId": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceName": {
+							"value": {
+								"value": "@pipeline().parameters.StageTable",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceRowCount": {
+							"value": {
+								"value": "@int(variables('Source_Row_Count'))",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"SourceType": {
+							"value": {
+								"value": "Stage Layer",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"Status": {
+							"value": {
+								"value": "Completed",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetName": {
+							"value": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetRowCount": {
+							"value": {
+								"value": "@int(variables('Target_Row_Count'))",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TargetType": {
+							"value": {
+								"value": "Published Layer",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"MasterPipelineId": {
+							"value": {
+								"value": "@pipeline().parameters.Master_Pipeline_Id",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"MasterPipelineName": {
+							"value": {
+								"value": "@pipeline().parameters.Master_Pipeline_Name",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"PipelineName": {
+							"value": {
+								"value": "@pipeline().Pipeline",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"StatusMessage": {
+							"value": null,
+							"type": "String"
+						},
+						"ErrorCode": {
+							"value": null,
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSynapseAnalytics_PROD",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Get_Record_Count_Of_Target",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Sp_Incremental_Load_From_Stage_To_Publish",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('Select Count(*) as count from ',pipeline().parameters.SchemaName,'.',pipeline().parameters.TableName,' where ',pipeline().parameters.Col_Val,' > ','''',variables('Config_Last_Updt_Dtm'),'''')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSynapseAnalytics_Table1",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.SchemaName",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": true
+				}
+			},
+			{
+				"name": "Set_Target_Row_Count",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Get_Record_Count_Of_Target",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Target_Row_Count",
+					"value": {
+						"value": "@string(activity('Get_Record_Count_Of_Target').output.firstRow.count)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Get_Record_Count_Of_Stage_Source",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Lookup_Row_Last_Updt_Dtm",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT count(*) as count FROM ',pipeline().parameters.SchemaName,'.',pipeline().parameters.StageTable)",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSynapseAnalytics_Table1",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.SchemaName",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.StageTable",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": true
+				}
+			},
+			{
+				"name": "Set_Source_Row_Count",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Get_Record_Count_Of_Stage_Source",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Source_Row_Count",
+					"value": {
+						"value": "@string(activity('Get_Record_Count_Of_Stage_Source').output.firstRow.count)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Sp_Create_Publishedlayer_Failed_Ingestion_Auditlog",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Sp_Incremental_Load_From_Stage_To_Publish",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[sp_create_ingestion_auditlog]",
+					"storedProcedureParameters": {
+						"IngestionEndTime": {
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"IngestionStartTime": {
+							"value": {
+								"value": "@pipeline().TriggerTime",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"PipelineRunId": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceName": {
+							"value": {
+								"value": "@pipeline().parameters.StageTable",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceRowCount": {
+							"value": {
+								"value": "0",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"SourceType": {
+							"value": {
+								"value": "Stage Layer",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"Status": {
+							"value": {
+								"value": "Failed",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetName": {
+							"value": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetRowCount": {
+							"value": {
+								"value": "0",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TargetType": {
+							"value": {
+								"value": "Published Layer",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"MasterPipelineId": {
+							"value": {
+								"value": "@pipeline().parameters.Master_Pipeline_Id",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"MasterPipelineName": {
+							"value": {
+								"value": "@pipeline().parameters.Master_Pipeline_Name",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"PipelineName": {
+							"value": {
+								"value": "@pipeline().Pipeline",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"Error_Message": {
+							"value": {
+								"value": "@variables('Error_Message')",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"Error_Code": {
+							"value": {
+								"value": "@variables('Error_Code')",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSynapseAnalytics_PROD",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Fail_Stg_To_Publish",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "Failure_Mail",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": "Data loading failed from Staging to Published",
+					"errorCode": "101"
+				}
+			},
+			{
+				"name": "Failure_Mail",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Sp_Create_Publishedlayer_Failed_Ingestion_Auditlog",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"url": {
+						"value": "@pipeline().globalParameters.LogicApp_generic_pl_failure_email",
+						"type": "Expression"
+					},
+					"body": {
+						"value": "{\n    \"Environment\":\"@{pipeline().globalParameters.Environment}\",\n\t\"DataFactoryName\":\"@{pipeline().Pipeline}\",\n\t\"ErrorMessage\":\"Data loading failed from Staging to Published\",\n\t\"RunId\":\"@{pipeline().RunId}\",\n\t\"pipelineName\":\"@{pipeline().Pipeline}\",\n\t\"SourceType\":\"@{pipeline().parameters.Sourcetype}\",\n    \"FileName\":\"@{pipeline().parameters.TableName}\"\n}\n",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Lookup_Config_Last_Upd_Dtm",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('select LastUpdDtm from ',pipeline().parameters.Config_Schema_Name,'.',pipeline().parameters.Config_Table_Name,' where Id = ',pipeline().parameters.Id)",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSynapseAnalytics_Table1",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.Config_Schema_Name",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.Config_Table_Name",
+								"type": "Expression"
+							}
+						}
+					}
+				}
+			},
+			{
+				"name": "Set_Config_Last_Upd_Dtm",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Lookup_Config_Last_Upd_Dtm",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Config_Last_Updt_Dtm",
+					"value": {
+						"value": "@activity('Lookup_Config_Last_Upd_Dtm').output.firstRow.LastUpdDtm",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Sp_Upd_Lst_Upd_Dtm",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Sp_Create_Publishedlayer_Success_Ingestion_Auditlog",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[sp_upd_Last_Upd_Dtm]",
+					"storedProcedureParameters": {
+						"id": {
+							"value": {
+								"value": "@pipeline().parameters.Id",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"NewLastUpdDtm": {
+							"value": {
+								"value": "@activity('Lookup_Row_Last_Updt_Dtm').output.firstRow.max",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"sourcetype": {
+							"value": {
+								"value": "@pipeline().parameters.Sourcetype",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSynapseAnalytics_PROD",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Lookup_Row_Last_Updt_Dtm",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Set_Config_Last_Upd_Dtm",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"sqlReaderQuery": {
+							"value": "@concat('select max(',pipeline().parameters.Col_Val,') as max from ',pipeline().parameters.SourceSchemaName,'.',pipeline().parameters.SourceTable)",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "Ds_Sqldb_Synapse1",
+						"type": "DatasetReference"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"Sourcetype": {
+				"type": "string",
+				"defaultValue": "ZARPAC_CENTRAL"
+			},
+			"Master_Pipeline_Id": {
+				"type": "string",
+				"defaultValue": "123"
+			},
+			"Master_Pipeline_Name": {
+				"type": "string",
+				"defaultValue": "abc"
+			},
+			"SchemaName": {
+				"type": "string",
+				"defaultValue": "Tbg_Zarpac"
+			},
+			"StageTable": {
+				"type": "string",
+				"defaultValue": "Tbg_Stg_Zarpac_B_Prdctn_Mach"
+			},
+			"TableName": {
+				"type": "string",
+				"defaultValue": "Tbg_Zarpac_B_Prdctn_Mach"
+			},
+			"StoredProcName": {
+				"type": "string",
+				"defaultValue": "dbo.sp_Load_Tbg_Zarpac_B_Prdctn_Mach"
+			},
+			"Config_Schema_Name": {
+				"type": "string"
+			},
+			"Config_Table_Name": {
+				"type": "string"
+			},
+			"Id": {
+				"type": "string"
+			},
+			"SourceSchemaName": {
+				"type": "string"
+			},
+			"SourceTable": {
+				"type": "string"
+			},
+			"Col_Val": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"Source_Row_Count": {
+				"type": "String"
+			},
+			"File_Name": {
+				"type": "String"
+			},
+			"Target_Row_Count": {
+				"type": "String"
+			},
+			"Error_Code": {
+				"type": "String"
+			},
+			"Error_Message": {
+				"type": "String"
+			},
+			"count": {
+				"type": "String"
+			},
+			"Zarpac_Sourcetype_Query": {
+				"type": "String"
+			},
+			"Config_Last_Updt_Dtm": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Zarpac"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:05Z"
+	}
+}
