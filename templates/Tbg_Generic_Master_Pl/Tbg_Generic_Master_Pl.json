@@ -1,0 +1,2298 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name"
+		},
+		"AzureDatabricks1": {
+			"type": "string"
+		},
+		"LS_AzureSynapseAnalytics_PROD": {
+			"type": "string"
+		},
+		"LS_AzureBlobStorage_Prod": {
+			"type": "string"
+		},
+		"LS_DeltaLake": {
+			"type": "string"
+		},
+		"Sftp1": {
+			"type": "string"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/Tbg_Generic_Master_Pl')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Source_Or_Landing_To_Raw",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "Tbg_Generic_Source_Or_Landing_To_Raw_Pl",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"Repo_Name": {
+									"value": "@pipeline().parameters.Repo_Name",
+									"type": "Expression"
+								},
+								"Source": {
+									"value": "@pipeline().parameters.Source",
+									"type": "Expression"
+								},
+								"logger_name": {
+									"value": "@pipeline().parameters.logger_name",
+									"type": "Expression"
+								},
+								"recipient_list": {
+									"value": "@pipeline().parameters.recipient_list",
+									"type": "Expression"
+								},
+								"Stage": "Source_Or_Landing_Raw",
+								"Is_Adhoc": {
+									"value": "@pipeline().parameters.Is_Adhoc",
+									"type": "Expression"
+								},
+								"env": {
+									"value": "@pipeline().parameters.env",
+									"type": "Expression"
+								},
+								"pipeline_name": {
+									"value": "@pipeline().parameters.pipeline_name",
+									"type": "Expression"
+								},
+								"cutoff_time": {
+									"value": "@pipeline().parameters.cutoff_time",
+									"type": "Expression"
+								},
+								"Is_Rerun": {
+									"value": "@pipeline().parameters.Is_Rerun",
+									"type": "Expression"
+								},
+								"Stage1_Threads": {
+									"value": "@pipeline().parameters.Stage1_Threads",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "Raw_To_Processed",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "Source_Or_Landing_To_Raw",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "Tbg_Generic_Raw_To_Processed_Pl",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"Source": {
+									"value": "@pipeline().parameters.Source",
+									"type": "Expression"
+								},
+								"Stage": "Raw_Processed",
+								"env": {
+									"value": "@pipeline().parameters.env",
+									"type": "Expression"
+								},
+								"Repo_Name": {
+									"value": "@pipeline().parameters.Repo_Name",
+									"type": "Expression"
+								},
+								"logger_name": {
+									"value": "@pipeline().parameters.logger_name",
+									"type": "Expression"
+								},
+								"pipeline_name": {
+									"value": "@pipeline().parameters.pipeline_name",
+									"type": "Expression"
+								},
+								"recipient_list": {
+									"value": "@pipeline().parameters.recipient_list",
+									"type": "Expression"
+								},
+								"Is_Adhoc": {
+									"value": "@pipeline().parameters.Is_Adhoc",
+									"type": "Expression"
+								},
+								"Repo_Path": {
+									"value": "@pipeline().globalParameters.RepoPath",
+									"type": "Expression"
+								},
+								"Is_Rerun": {
+									"value": "@pipeline().parameters.Is_Rerun",
+									"type": "Expression"
+								},
+								"Stage2_Threads": {
+									"value": "@pipeline().parameters.Stage2_Threads",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "Processed_To_CanDim",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "Raw_To_Processed",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "Tbg_Generic_Processed_To_CanDim_Pl",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"pipeline_name": {
+									"value": "@pipeline().parameters.pipeline_name",
+									"type": "Expression"
+								},
+								"env": {
+									"value": "@pipeline().parameters.env",
+									"type": "Expression"
+								},
+								"Stage": "Processed_Canonical",
+								"Source": {
+									"value": "@pipeline().parameters.Source",
+									"type": "Expression"
+								},
+								"Repo_Name": {
+									"value": "@pipeline().parameters.Repo_Name",
+									"type": "Expression"
+								},
+								"logger_name": {
+									"value": "@pipeline().parameters.logger_name",
+									"type": "Expression"
+								},
+								"recipient_list": {
+									"value": "@pipeline().parameters.recipient_list",
+									"type": "Expression"
+								},
+								"Is_Adhoc": {
+									"value": "@pipeline().parameters.Is_Adhoc",
+									"type": "Expression"
+								},
+								"Repo_Path": {
+									"value": "@pipeline().globalParameters.RepoPath",
+									"type": "Expression"
+								},
+								"Is_Rerun": {
+									"value": "@pipeline().parameters.Is_Rerun",
+									"type": "Expression"
+								},
+								"Stage3_Threads": {
+									"value": "@pipeline().parameters.Stage3_Threads",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "CanDim_To_Synapse",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "Processed_To_CanDim",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "Tbg_Generic_CanDim_To_Synapse_Pl",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"pipeline_name": {
+									"value": "@pipeline().parameters.pipeline_name",
+									"type": "Expression"
+								},
+								"env": {
+									"value": "@pipeline().parameters.env",
+									"type": "Expression"
+								},
+								"Stage": "Canonical_Published",
+								"Source": {
+									"value": "@pipeline().parameters.Source",
+									"type": "Expression"
+								},
+								"Synapse_Url_Secret_Name": {
+									"value": "@pipeline().parameters.Synapse_Url_Secret_Name",
+									"type": "Expression"
+								},
+								"ADLS_Storage_Key_Secret_Name": {
+									"value": "@pipeline().parameters.ADLS_Storage_Key_Secret_Name",
+									"type": "Expression"
+								},
+								"Temp_Dir": {
+									"value": "@pipeline().globalParameters.TempDir",
+									"type": "Expression"
+								},
+								"Repo_Name": {
+									"value": "@pipeline().parameters.Repo_Name",
+									"type": "Expression"
+								},
+								"ADLS_Storage_Name": {
+									"value": "@pipeline().globalParameters.AdlsStorageName",
+									"type": "Expression"
+								},
+								"logger_name": {
+									"value": "@pipeline().parameters.logger_name",
+									"type": "Expression"
+								},
+								"recipient_list": {
+									"value": "@pipeline().parameters.recipient_list",
+									"type": "Expression"
+								},
+								"Published_Db_Name": {
+									"value": "@pipeline().parameters.Published_Db_Name",
+									"type": "Expression"
+								},
+								"Is_Adhoc": {
+									"value": "@pipeline().parameters.Is_Adhoc",
+									"type": "Expression"
+								},
+								"Repo_Path": {
+									"value": "@pipeline().globalParameters.RepoPath",
+									"type": "Expression"
+								},
+								"Is_Rerun": {
+									"value": "@pipeline().parameters.Is_Rerun",
+									"type": "Expression"
+								},
+								"Stage4_Threads": {
+									"value": "@pipeline().parameters.Stage4_Threads",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "Archive_Files",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "CanDim_To_Synapse",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "Tbg_Generic_Archive_Files",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"Source": {
+									"value": "@pipeline().parameters.Source",
+									"type": "Expression"
+								},
+								"pipeline_name": {
+									"value": "@pipeline().parameters.pipeline_name",
+									"type": "Expression"
+								},
+								"env": {
+									"value": "@pipeline().parameters.env",
+									"type": "Expression"
+								},
+								"Stage": "Archive",
+								"Repo_Name": {
+									"value": "@pipeline().parameters.Repo_Name",
+									"type": "Expression"
+								},
+								"recipient_list": {
+									"value": "@pipeline().parameters.recipient_list",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "Complete_batchid",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "Processed_To_CanDim",
+								"dependencyConditions": [
+									"Failed"
+								]
+							},
+							{
+								"activity": "Raw_To_Processed",
+								"dependencyConditions": [
+									"Failed"
+								]
+							},
+							{
+								"activity": "Source_Or_Landing_To_Raw",
+								"dependencyConditions": [
+									"Failed"
+								]
+							},
+							{
+								"activity": "CanDim_To_Synapse",
+								"dependencyConditions": [
+									"Failed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().globalParameters.RepoPath,'/Databricks/Notebooks/Utils/batchid_Rerun_handler')",
+								"type": "Expression"
+							},
+							"baseParameters": {
+								"Batch_Status": {
+									"value": "End",
+									"type": "Expression"
+								},
+								"Source": {
+									"value": "@pipeline().parameters.Source",
+									"type": "Expression"
+								},
+								"logger_name": {
+									"value": "@pipeline().parameters.logger_name",
+									"type": "Expression"
+								},
+								"recipient_list": {
+									"value": "@pipeline().parameters.recipient_list",
+									"type": "Expression"
+								},
+								"Is_Rerun": {
+									"value": "@pipeline().parameters.Is_Rerun",
+									"type": "Expression"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('AzureDatabricks1')]",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Gather_Table_Stats",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Archive_Files",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[prc_syndp_Update_stats]",
+							"storedProcedureParameters": {
+								"Src_Schema_Name": {
+									"value": {
+										"value": "@pipeline().parameters.Published_Db_Name",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('LS_AzureSynapseAnalytics_PROD')]",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "EA_Daily_Workflow_Trigger",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "Archive_Files",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().globalParameters.RepoPath,'/Databricks/Notebooks/Utils/ea_trigger_databricks_workflow')",
+								"type": "Expression"
+							},
+							"baseParameters": {
+								"env": {
+									"value": "@pipeline().parameters.env",
+									"type": "Expression"
+								},
+								"Source": {
+									"value": "@pipeline().parameters.Source",
+									"type": "Expression"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('AzureDatabricks1')]",
+							"type": "LinkedServiceReference"
+						}
+					}
+				],
+				"parameters": {
+					"Source": {
+						"type": "string"
+					},
+					"env": {
+						"type": "string"
+					},
+					"recipient_list": {
+						"type": "string"
+					},
+					"Repo_Name": {
+						"type": "string"
+					},
+					"pipeline_name": {
+						"type": "string"
+					},
+					"logger_name": {
+						"type": "string"
+					},
+					"Published_Db_Name": {
+						"type": "string"
+					},
+					"ADLS_Storage_Name": {
+						"type": "string"
+					},
+					"Synapse_Url_Secret_Name": {
+						"type": "string"
+					},
+					"ADLS_Storage_Key_Secret_Name": {
+						"type": "string"
+					},
+					"Temp_Dir": {
+						"type": "string"
+					},
+					"Is_Adhoc": {
+						"type": "string"
+					},
+					"Repo_Path": {
+						"type": "string"
+					},
+					"cutoff_time": {
+						"type": "string"
+					},
+					"Is_Rerun": {
+						"type": "string"
+					},
+					"Stage1_Threads": {
+						"type": "string"
+					},
+					"Stage2_Threads": {
+						"type": "string"
+					},
+					"Stage3_Threads": {
+						"type": "string"
+					},
+					"Stage4_Threads": {
+						"type": "string"
+					}
+				},
+				"variables": {
+					"File_Status": {
+						"type": "String"
+					}
+				},
+				"folder": {
+					"name": "Generic"
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-04-07T16:03:12Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/Tbg_Generic_Source_Or_Landing_To_Raw_Pl')]",
+				"[concat(variables('factoryId'), '/pipelines/Tbg_Generic_Raw_To_Processed_Pl')]",
+				"[concat(variables('factoryId'), '/pipelines/Tbg_Generic_Processed_To_CanDim_Pl')]",
+				"[concat(variables('factoryId'), '/pipelines/Tbg_Generic_CanDim_To_Synapse_Pl')]",
+				"[concat(variables('factoryId'), '/pipelines/Tbg_Generic_Archive_Files')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Tbg_Generic_Source_Or_Landing_To_Raw_Pl')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Generate_batchid",
+						"type": "DatabricksNotebook",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().globalParameters.RepoPath,'/Databricks/Notebooks/Utils/batchid_Rerun_handler')",
+								"type": "Expression"
+							},
+							"baseParameters": {
+								"Batch_Status": {
+									"value": "Start",
+									"type": "Expression"
+								},
+								"Source": {
+									"value": "@pipeline().parameters.Source",
+									"type": "Expression"
+								},
+								"logger_name": {
+									"value": "@pipeline().parameters.logger_name",
+									"type": "Expression"
+								},
+								"recipient_list": {
+									"value": "@pipeline().parameters.recipient_list",
+									"type": "Expression"
+								},
+								"env": {
+									"value": "@pipeline().parameters.env",
+									"type": "Expression"
+								},
+								"Stage": {
+									"value": "@pipeline().parameters.Stage",
+									"type": "Expression"
+								},
+								"pipeline_name": {
+									"value": "@pipeline().parameters.pipeline_name",
+									"type": "Expression"
+								},
+								"Repo_Name": {
+									"value": "@pipeline().parameters.Repo_Name",
+									"type": "Expression"
+								},
+								"Is_Rerun": {
+									"value": "@pipeline().parameters.Is_Rerun",
+									"type": "Expression"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('AzureDatabricks1')]",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Fetch_Source_Type",
+						"type": "Lookup",
+						"dependsOn": [
+							{
+								"activity": "Generate_batchid",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureDatabricksDeltaLakeSource",
+								"query": {
+									"value": "@concat('select distinct lower(source_Type) as source_Type from(SELECT ID as in_ID,Output_Name,Source,Stage,Is_Active,Is_Adhoc,GET_JSON_OBJECT(Input_Details, CONCAT(\"$.\", key,\".\",\"Type\")) as source_Type FROM tbg_global.tbg_config CROSS JOIN lateral (SELECT json_object_keys(input_Details) as keys) t LATERAL VIEW explode(keys) exploded_keys as key) as input where input.stage = \"Source_Or_Landing_Raw\" and lower(source_Type) in (\"landing\",\"api\") and Source=\"',pipeline().parameters.Source,'\" and Is_Active = \"Y\"  and Is_Adhoc =\"',pipeline().parameters.Is_Adhoc,'\";')",
+									"type": "Expression"
+								}
+							},
+							"dataset": {
+								"referenceName": "Ds_Delta_Lake_Config1",
+								"type": "DatasetReference"
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "ForEach_SourceType",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Fetch_Source_Type",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Fetch_Source_Type').output.value",
+								"type": "Expression"
+							},
+							"isSequential": true,
+							"activities": [
+								{
+									"name": "Check if source is API",
+									"type": "IfCondition",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@equals(item().source_Type, 'api')\n\n",
+											"type": "Expression"
+										},
+										"ifTrueActivities": [
+											{
+												"name": "Download_From_API_To_Raw",
+												"type": "DatabricksNotebook",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.04:00:00",
+													"retry": 2,
+													"retryIntervalInSeconds": 60,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"notebookPath": {
+														"value": "@concat(pipeline().globalParameters.RepoPath,'/Databricks/Notebooks/Source_Or_Landing_To_Raw/Api/Tbg_Api_To_Raw')",
+														"type": "Expression"
+													},
+													"baseParameters": {
+														"Is_Adhoc": {
+															"value": "@pipeline().parameters.Is_Adhoc",
+															"type": "Expression"
+														},
+														"Repo_Name": {
+															"value": "@pipeline().parameters.Repo_Name",
+															"type": "Expression"
+														},
+														"Repo_Path": {
+															"value": "@pipeline().globalParameters.RepoPath",
+															"type": "Expression"
+														},
+														"Source": {
+															"value": "@pipeline().parameters.Source",
+															"type": "Expression"
+														},
+														"Stage": "Source_Or_Landing_Raw",
+														"container_name": {
+															"value": "@pipeline().globalParameters.SourceContainer",
+															"type": "Expression"
+														},
+														"env": {
+															"value": "@pipeline().parameters.env",
+															"type": "Expression"
+														},
+														"pipeline_name": {
+															"value": "@pipeline().parameters.pipeline_name",
+															"type": "Expression"
+														},
+														"recipient_list": {
+															"value": "@pipeline().parameters.recipient_list",
+															"type": "Expression"
+														},
+														"storage_account": {
+															"value": "@pipeline().globalParameters.Storage_Account_Name",
+															"type": "Expression"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "[parameters('AzureDatabricks1')]",
+													"type": "LinkedServiceReference"
+												}
+											}
+										]
+									}
+								},
+								{
+									"name": "Check if source is landing",
+									"type": "IfCondition",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@equals(item().source_Type, 'landing')",
+											"type": "Expression"
+										},
+										"ifTrueActivities": [
+											{
+												"name": "Move_From_Landing_To_Raw",
+												"type": "DatabricksNotebook",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"notebookPath": {
+														"value": "@concat(pipeline().globalParameters.RepoPath,'/Databricks/Notebooks/Source_Or_Landing_To_Raw/Landing/Source_Or_Landing_To_Raw')",
+														"type": "Expression"
+													},
+													"baseParameters": {
+														"Stage": {
+															"value": "@pipeline().parameters.Stage",
+															"type": "Expression"
+														},
+														"Source": {
+															"value": "@pipeline().parameters.Source",
+															"type": "Expression"
+														},
+														"Repo_Name": {
+															"value": "@pipeline().parameters.Repo_Name",
+															"type": "Expression"
+														},
+														"Is_Adhoc": {
+															"value": "@pipeline().parameters.Is_Adhoc",
+															"type": "Expression"
+														},
+														"env": {
+															"value": "@pipeline().parameters.env",
+															"type": "Expression"
+														},
+														"recipient_list": {
+															"value": "@pipeline().parameters.recipient_list",
+															"type": "Expression"
+														},
+														"pipeline_name": {
+															"value": "@pipeline().parameters.pipeline_name",
+															"type": "Expression"
+														},
+														"cutoff_time": {
+															"value": "@pipeline().parameters.cutoff_time",
+															"type": "Expression"
+														},
+														"Is_Rerun": {
+															"value": "@pipeline().parameters.Is_Rerun",
+															"type": "Expression"
+														},
+														"Stage1_Threads": {
+															"value": "@pipeline().parameters.Stage1_Threads",
+															"type": "Expression"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "[parameters('AzureDatabricks1')]",
+													"type": "LinkedServiceReference"
+												}
+											}
+										]
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "Fetch_Source_Or_Landing_To_Raw_Config_Details",
+						"description": "Get source,input,output details for source type sftp",
+						"type": "Lookup",
+						"dependsOn": [
+							{
+								"activity": "Generate_batchid",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.00:10:00",
+							"retry": 2,
+							"retryIntervalInSeconds": 60,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureDatabricksDeltaLakeSource",
+								"query": {
+									"value": "@concat('select * from(SELECT ID as in_ID,Output_Name,Source,Stage,Is_Active,Is_Adhoc,GET_JSON_OBJECT(Input_Details, CONCAT(\"$.\", key,\".\",\"Location\")) as Source_Location,GET_JSON_OBJECT(Input_Details, CONCAT(\"$.\", key,\".\",\"File_Name\")) as Source_FileName,GET_JSON_OBJECT(Input_Details, CONCAT(\"$.\", key,\".\",\"Type\")) as source_Type FROM tbg_global.tbg_config CROSS JOIN lateral (SELECT json_object_keys(input_Details) as keys) t LATERAL VIEW explode(keys) exploded_keys as key) as input INNER JOIN( SELECT key as Dynamic_Key,ID as out_ID,Source as out_Source,GET_JSON_OBJECT(Output_Details, CONCAT(\"$.\", key,\".\",\"Location\")) as Target_Location,GET_JSON_OBJECT(Output_Details, CONCAT(\"$.\", key,\".\",\"File_Name\")) as Target_FileName FROM tbg_global.tbg_config CROSS JOIN lateral (SELECT json_object_keys(Output_Details) as keys) t LATERAL VIEW explode(keys) exploded_keys as key) as output on input.in_ID=output.out_ID where input.stage = \"Source_Or_Landing_Raw\" and lower(input.source_Type)=\"sftp\" and input.Source=\"',pipeline().parameters.Source,'\" and input.Is_Active = \"Y\" and output.out_Source=\"',pipeline().parameters.Source,'\" and input.Is_Adhoc =\"',pipeline().parameters.Is_Adhoc,'\";')",
+									"type": "Expression"
+								}
+							},
+							"dataset": {
+								"referenceName": "Ds_Delta_Lake_Config1",
+								"type": "DatasetReference"
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "Loop_Source_And_Output_Name",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Fetch_Source_Or_Landing_To_Raw_Config_Details",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Fetch_Source_Or_Landing_To_Raw_Config_Details').output.value",
+								"type": "Expression"
+							},
+							"isSequential": true,
+							"activities": [
+								{
+									"name": "Check if source type is SFTP",
+									"type": "IfCondition",
+									"dependsOn": [
+										{
+											"activity": "If Source is Iri and File is Old",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@and(and(equals(item().source_Type,'SFTP'),equals(variables('File_Status'),'New File')),equals(pipeline().parameters.Source,'Iri'))",
+											"type": "Expression"
+										},
+										"ifTrueActivities": [
+											{
+												"name": "Tbg_Fetch_From_Sftp_To_Raw",
+												"type": "Copy",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.01:00:00",
+													"retry": 2,
+													"retryIntervalInSeconds": 60,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"source": {
+														"type": "DelimitedTextSource",
+														"storeSettings": {
+															"type": "SftpReadSettings",
+															"recursive": true,
+															"enablePartitionDiscovery": false,
+															"disableChunking": false
+														},
+														"formatSettings": {
+															"type": "DelimitedTextReadSettings"
+														}
+													},
+													"sink": {
+														"type": "DelimitedTextSink",
+														"storeSettings": {
+															"type": "AzureBlobStorageWriteSettings"
+														},
+														"formatSettings": {
+															"type": "DelimitedTextWriteSettings",
+															"quoteAllText": true,
+															"fileExtension": ".txt"
+														}
+													},
+													"enableStaging": false,
+													"translator": {
+														"type": "TabularTranslator",
+														"typeConversion": true,
+														"typeConversionSettings": {
+															"allowDataTruncation": true,
+															"treatBooleanAsNumber": false
+														}
+													}
+												},
+												"inputs": [
+													{
+														"referenceName": "Ds_Sftp_Iri",
+														"type": "DatasetReference",
+														"parameters": {
+															"directory": {
+																"value": "@item().Source_Location",
+																"type": "Expression"
+															},
+															"filename": {
+																"value": "@item().Source_FileName",
+																"type": "Expression"
+															}
+														}
+													}
+												],
+												"outputs": [
+													{
+														"referenceName": "Ds_Sftp_Raw",
+														"type": "DatasetReference",
+														"parameters": {
+															"container": {
+																"value": "@pipeline().globalParameters.SourceContainer",
+																"type": "Expression"
+															},
+															"directory": {
+																"value": "@item().Target_Location",
+																"type": "Expression"
+															},
+															"filename": {
+																"value": "@item().Target_FileName",
+																"type": "Expression"
+															}
+														}
+													}
+												]
+											},
+											{
+												"name": "Sftp_Source_Raw_Audit",
+												"type": "DatabricksNotebook",
+												"dependsOn": [
+													{
+														"activity": "Set Status Success",
+														"dependencyConditions": [
+															"Succeeded",
+															"Skipped"
+														]
+													},
+													{
+														"activity": "Set Status Failed",
+														"dependencyConditions": [
+															"Succeeded",
+															"Skipped"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"notebookPath": {
+														"value": "@concat(pipeline().globalParameters.RepoPath,'/Databricks/Notebooks/Source_Or_Landing_To_Raw/Landing/Source_Raw_Audit_Update')",
+														"type": "Expression"
+													},
+													"baseParameters": {
+														"status": {
+															"value": "@variables('Status')",
+															"type": "Expression"
+														},
+														"Source": {
+															"value": "@item().Source",
+															"type": "Expression"
+														},
+														"Stage": {
+															"value": "@item().Stage",
+															"type": "Expression"
+														},
+														"file_name": {
+															"value": "@item().Output_Name",
+															"type": "Expression"
+														},
+														"load_Count": {
+															"value": "@string(activity('Tbg_Fetch_From_Sftp_To_Raw').output.dataWritten)",
+															"type": "Expression"
+														},
+														"Is_Rerun": {
+															"value": "@pipeline().parameters.Is_Rerun",
+															"type": "Expression"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "[parameters('AzureDatabricks1')]",
+													"type": "LinkedServiceReference"
+												}
+											},
+											{
+												"name": "Set Status Success",
+												"type": "SetVariable",
+												"dependsOn": [
+													{
+														"activity": "Tbg_Fetch_From_Sftp_To_Raw",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "Status",
+													"value": "Success"
+												}
+											},
+											{
+												"name": "Set Status Failed",
+												"type": "SetVariable",
+												"dependsOn": [
+													{
+														"activity": "Tbg_Fetch_From_Sftp_To_Raw",
+														"dependencyConditions": [
+															"Failed"
+														]
+													}
+												],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "Status",
+													"value": "Failed"
+												}
+											}
+										]
+									}
+								},
+								{
+									"name": "If Source is Iri and Type is SFTP",
+									"type": "IfCondition",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@and(equals(item().source_Type,'SFTP'),equals(pipeline().parameters.Source,'Iri'))",
+											"type": "Expression"
+										},
+										"ifTrueActivities": [
+											{
+												"name": "Get_File_Last_Mod_Date",
+												"type": "GetMetadata",
+												"dependsOn": [
+													{
+														"activity": "Delete_Old_Outbounfile",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"dataset": {
+														"referenceName": "Ds_Sftp_Iri",
+														"type": "DatasetReference",
+														"parameters": {
+															"directory": "@item().Source_Location",
+															"filename": "@item().Source_FileName"
+														}
+													},
+													"fieldList": [
+														"exists",
+														"lastModified"
+													],
+													"storeSettings": {
+														"type": "SftpReadSettings",
+														"recursive": true,
+														"enablePartitionDiscovery": false,
+														"disableChunking": false
+													},
+													"formatSettings": {
+														"type": "DelimitedTextReadSettings"
+													}
+												}
+											},
+											{
+												"name": "Check_File_Status",
+												"type": "SetVariable",
+												"dependsOn": [
+													{
+														"activity": "Get_File_Last_Mod_Date",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "File_Status",
+													"value": {
+														"value": "@if(activity('Get_File_Last_Mod_Date').output.exists,if(lessOrequals(div(sub(ticks(utcnow()),ticks(activity('Get_File_Last_Mod_Date').output.lastModified)),864000000000),6),'New File','Old File'),'Not Exists')",
+														"type": "Expression"
+													}
+												}
+											},
+											{
+												"name": "Delete_Old_Outbounfile",
+												"type": "Delete",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"dataset": {
+														"referenceName": "Binary_AzureBlob",
+														"type": "DatasetReference",
+														"parameters": {
+															"FileName": "Consumption_Actuals.csv",
+															"Container": {
+																"value": "@pipeline().globalParameters.SourceContainer",
+																"type": "Expression"
+															},
+															"Directory": "/Tropicana/Outbound/Iri/"
+														}
+													},
+													"logStorageSettings": {
+														"linkedServiceName": {
+															"referenceName": "[parameters('LS_AzureBlobStorage_Prod')]",
+															"type": "LinkedServiceReference"
+														}
+													},
+													"enableLogging": true,
+													"storeSettings": {
+														"type": "AzureBlobStorageReadSettings",
+														"recursive": true,
+														"enablePartitionDiscovery": false
+													}
+												}
+											}
+										]
+									}
+								},
+								{
+									"name": "If Source is Iri and File is Old",
+									"type": "IfCondition",
+									"dependsOn": [
+										{
+											"activity": "If Source is Iri and Type is SFTP",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@equals(variables('File_Status'),'Old File')",
+											"type": "Expression"
+										},
+										"ifTrueActivities": [
+											{
+												"name": "Fail_Load",
+												"type": "Fail",
+												"dependsOn": [
+													{
+														"activity": "Upd_Sftp_Source_Raw_Audit",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"userProperties": [],
+												"typeProperties": {
+													"message": "Older File Found",
+													"errorCode": "000"
+												}
+											},
+											{
+												"name": "Upd_Sftp_Source_Raw_Audit",
+												"type": "DatabricksNotebook",
+												"dependsOn": [
+													{
+														"activity": "Set Load Status Failed",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"notebookPath": {
+														"value": "@concat(pipeline().globalParameters.RepoPath,'/Databricks/Notebooks/Source_Or_Landing_To_Raw/Landing/Source_Raw_Audit_Update')",
+														"type": "Expression"
+													},
+													"baseParameters": {
+														"status": {
+															"value": "@variables('Status')",
+															"type": "Expression"
+														},
+														"Source": {
+															"value": "@item().Source",
+															"type": "Expression"
+														},
+														"Stage": {
+															"value": "@item().Stage",
+															"type": "Expression"
+														},
+														"file_name": {
+															"value": "@item().Output_Name",
+															"type": "Expression"
+														},
+														"load_Count": "0",
+														"Is_Rerun": {
+															"value": "@pipeline().parameters.Is_Rerun",
+															"type": "Expression"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "[parameters('AzureDatabricks1')]",
+													"type": "LinkedServiceReference"
+												}
+											},
+											{
+												"name": "Set Load Status Failed",
+												"type": "SetVariable",
+												"dependsOn": [],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "Status",
+													"value": "Failed"
+												}
+											}
+										]
+									}
+								},
+								{
+									"name": "Non Iri Sources",
+									"type": "IfCondition",
+									"dependsOn": [
+										{
+											"activity": "Check if source type is SFTP",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@and(equals(item().source_Type,'SFTP'),not(equals(pipeline().parameters.Source,'Iri')))",
+											"type": "Expression"
+										},
+										"ifTrueActivities": [
+											{
+												"name": "Tbg_Fetch_From_Sftp_To_Raw_Non_IRI",
+												"type": "Copy",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.01:00:00",
+													"retry": 2,
+													"retryIntervalInSeconds": 60,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"source": {
+														"type": "DelimitedTextSource",
+														"storeSettings": {
+															"type": "SftpReadSettings",
+															"recursive": true,
+															"enablePartitionDiscovery": false,
+															"disableChunking": false
+														},
+														"formatSettings": {
+															"type": "DelimitedTextReadSettings"
+														}
+													},
+													"sink": {
+														"type": "DelimitedTextSink",
+														"storeSettings": {
+															"type": "AzureBlobStorageWriteSettings"
+														},
+														"formatSettings": {
+															"type": "DelimitedTextWriteSettings",
+															"quoteAllText": true,
+															"fileExtension": ".txt"
+														}
+													},
+													"enableStaging": false,
+													"translator": {
+														"type": "TabularTranslator",
+														"typeConversion": true,
+														"typeConversionSettings": {
+															"allowDataTruncation": true,
+															"treatBooleanAsNumber": false
+														}
+													}
+												},
+												"inputs": [
+													{
+														"referenceName": "Ds_Sftp_Iri",
+														"type": "DatasetReference",
+														"parameters": {
+															"directory": {
+																"value": "@item().Source_Location",
+																"type": "Expression"
+															},
+															"filename": {
+																"value": "@item().Source_FileName",
+																"type": "Expression"
+															}
+														}
+													}
+												],
+												"outputs": [
+													{
+														"referenceName": "Ds_Sftp_Raw",
+														"type": "DatasetReference",
+														"parameters": {
+															"container": {
+																"value": "@pipeline().globalParameters.SourceContainer",
+																"type": "Expression"
+															},
+															"directory": {
+																"value": "@item().Target_Location",
+																"type": "Expression"
+															},
+															"filename": {
+																"value": "@item().Target_FileName",
+																"type": "Expression"
+															}
+														}
+													}
+												]
+											},
+											{
+												"name": "Sftp_Source_Raw_Audit__Non_IRI",
+												"type": "DatabricksNotebook",
+												"dependsOn": [
+													{
+														"activity": "Set Status Success Non IRI",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													},
+													{
+														"activity": "Set Status Failed Non Iri",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"notebookPath": {
+														"value": "@concat(pipeline().globalParameters.RepoPath,'/Databricks/Notebooks/Source_Or_Landing_To_Raw/Landing/Source_Raw_Audit_Update')",
+														"type": "Expression"
+													},
+													"baseParameters": {
+														"status": {
+															"value": "@variables('Status')",
+															"type": "Expression"
+														},
+														"Source": {
+															"value": "@item().Source",
+															"type": "Expression"
+														},
+														"Stage": {
+															"value": "@item().Stage",
+															"type": "Expression"
+														},
+														"file_name": {
+															"value": "@item().Output_Name",
+															"type": "Expression"
+														},
+														"load_Count": {
+															"value": "@string(activity('Tbg_Fetch_From_Sftp_To_Raw').output.dataWritten)",
+															"type": "Expression"
+														},
+														"Is_Rerun": {
+															"value": "@pipeline().parameters.Is_Rerun",
+															"type": "Expression"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "[parameters('AzureDatabricks1')]",
+													"type": "LinkedServiceReference"
+												}
+											},
+											{
+												"name": "Set Status Success Non IRI",
+												"type": "SetVariable",
+												"dependsOn": [
+													{
+														"activity": "Tbg_Fetch_From_Sftp_To_Raw_Non_IRI",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "Status",
+													"value": "Success"
+												}
+											},
+											{
+												"name": "Set Status Failed Non Iri",
+												"type": "SetVariable",
+												"dependsOn": [
+													{
+														"activity": "Tbg_Fetch_From_Sftp_To_Raw_Non_IRI",
+														"dependencyConditions": [
+															"Failed"
+														]
+													}
+												],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "Status",
+													"value": "Failed"
+												}
+											}
+										]
+									}
+								}
+							]
+						}
+					}
+				],
+				"parameters": {
+					"Repo_Name": {
+						"type": "string"
+					},
+					"Source": {
+						"type": "string"
+					},
+					"logger_name": {
+						"type": "string"
+					},
+					"recipient_list": {
+						"type": "string"
+					},
+					"Stage": {
+						"type": "string",
+						"defaultValue": "Source_Or_Landing_Raw"
+					},
+					"Is_Adhoc": {
+						"type": "string"
+					},
+					"env": {
+						"type": "string"
+					},
+					"pipeline_name": {
+						"type": "string"
+					},
+					"cutoff_time": {
+						"type": "string"
+					},
+					"Is_Rerun": {
+						"type": "string"
+					},
+					"Stage1_Threads": {
+						"type": "string"
+					}
+				},
+				"variables": {
+					"Status_Success": {
+						"type": "String"
+					},
+					"Status_Failed": {
+						"type": "String"
+					},
+					"Status": {
+						"type": "String"
+					},
+					"File_Status": {
+						"type": "String"
+					}
+				},
+				"folder": {
+					"name": "Generic"
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-04-07T16:03:09Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Ds_Delta_Lake_Config1')]",
+				"[concat(variables('factoryId'), '/datasets/Ds_Sftp_Iri')]",
+				"[concat(variables('factoryId'), '/datasets/Ds_Sftp_Raw')]",
+				"[concat(variables('factoryId'), '/datasets/Binary_AzureBlob')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Tbg_Generic_Raw_To_Processed_Pl')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Tbg_Raw_To_Processed",
+						"type": "DatabricksNotebook",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.04:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 60,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().globalParameters.RepoPath,'/Databricks/Notebooks/Raw_To_Processed/Transform/Tbg_Raw_To_Processed')",
+								"type": "Expression"
+							},
+							"baseParameters": {
+								"Stage": {
+									"value": "@pipeline().parameters.Stage",
+									"type": "Expression"
+								},
+								"Source": {
+									"value": "@pipeline().parameters.Source",
+									"type": "Expression"
+								},
+								"Is_Adhoc": {
+									"value": "@pipeline().parameters.Is_Adhoc",
+									"type": "Expression"
+								},
+								"recipient_list": {
+									"value": "@pipeline().parameters.recipient_list",
+									"type": "Expression"
+								},
+								"pipeline_name": {
+									"value": "@pipeline().parameters.pipeline_name",
+									"type": "Expression"
+								},
+								"Repo_Name": {
+									"value": "@pipeline().parameters.Repo_Name",
+									"type": "Expression"
+								},
+								"env": {
+									"value": "@pipeline().parameters.env",
+									"type": "Expression"
+								},
+								"Repo_Path": {
+									"value": "@pipeline().globalParameters.RepoPath",
+									"type": "Expression"
+								},
+								"Is_Rerun": {
+									"value": "@pipeline().parameters.Is_Rerun",
+									"type": "Expression"
+								},
+								"Stage2_Threads": {
+									"value": "@pipeline().parameters.Stage2_Threads",
+									"type": "Expression"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('AzureDatabricks1')]",
+							"type": "LinkedServiceReference"
+						}
+					}
+				],
+				"concurrency": 1,
+				"parameters": {
+					"Source": {
+						"type": "string"
+					},
+					"Stage": {
+						"type": "string",
+						"defaultValue": "Raw_Processed"
+					},
+					"env": {
+						"type": "string"
+					},
+					"Repo_Name": {
+						"type": "string"
+					},
+					"logger_name": {
+						"type": "string"
+					},
+					"pipeline_name": {
+						"type": "string"
+					},
+					"recipient_list": {
+						"type": "string"
+					},
+					"Is_Adhoc": {
+						"type": "string"
+					},
+					"Repo_Path": {
+						"type": "string"
+					},
+					"Is_Rerun": {
+						"type": "string"
+					},
+					"Stage2_Threads": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Generic"
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-04-07T16:03:03Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Tbg_Generic_Processed_To_CanDim_Pl')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Tbg_Processed_To_CanDim",
+						"type": "DatabricksNotebook",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.04:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().globalParameters.RepoPath,'/Databricks/Notebooks/Processed_To_Candim/Transform/Processed_to_CanDim')",
+								"type": "Expression"
+							},
+							"baseParameters": {
+								"pipeline_name": {
+									"value": "@pipeline().parameters.pipeline_name",
+									"type": "Expression"
+								},
+								"env": {
+									"value": "@pipeline().parameters.env",
+									"type": "Expression"
+								},
+								"Stage": "Processed_Canonical",
+								"Source": {
+									"value": "@pipeline().parameters.Source",
+									"type": "Expression"
+								},
+								"Repo_Name": {
+									"value": "@pipeline().parameters.Repo_Name",
+									"type": "Expression"
+								},
+								"logger_name": {
+									"value": "@pipeline().parameters.logger_name",
+									"type": "Expression"
+								},
+								"recipient_list": {
+									"value": "@pipeline().parameters.recipient_list",
+									"type": "Expression"
+								},
+								"Is_Adhoc": {
+									"value": "@pipeline().parameters.Is_Adhoc",
+									"type": "Expression"
+								},
+								"Repo_Path": {
+									"value": "@pipeline().globalParameters.RepoPath",
+									"type": "Expression"
+								},
+								"Is_Rerun": {
+									"value": "@pipeline().parameters.Is_Rerun",
+									"type": "Expression"
+								},
+								"Stage3_Threads": {
+									"value": "@pipeline().parameters.Stage3_Threads",
+									"type": "Expression"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('AzureDatabricks1')]",
+							"type": "LinkedServiceReference"
+						}
+					}
+				],
+				"concurrency": 1,
+				"parameters": {
+					"pipeline_name": {
+						"type": "string"
+					},
+					"env": {
+						"type": "string"
+					},
+					"Stage": {
+						"type": "string"
+					},
+					"Source": {
+						"type": "string"
+					},
+					"Repo_Name": {
+						"type": "string"
+					},
+					"logger_name": {
+						"type": "string"
+					},
+					"recipient_list": {
+						"type": "string"
+					},
+					"Is_Adhoc": {
+						"type": "string"
+					},
+					"Repo_Path": {
+						"type": "string"
+					},
+					"Is_Rerun": {
+						"type": "string"
+					},
+					"Stage3_Threads": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Generic"
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-04-07T16:03:03Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Tbg_Generic_CanDim_To_Synapse_Pl')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Tbg_CanDim_To_Synapse",
+						"type": "DatabricksNotebook",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.04:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().globalParameters.RepoPath,'/Databricks/Notebooks/Candim_To_Synapse/Transform/CanDim_to_Synapse')",
+								"type": "Expression"
+							},
+							"baseParameters": {
+								"pipeline_name": {
+									"value": "@pipeline().parameters.pipeline_name",
+									"type": "Expression"
+								},
+								"env": {
+									"value": "@pipeline().parameters.env",
+									"type": "Expression"
+								},
+								"Stage": {
+									"value": "@pipeline().parameters.Stage",
+									"type": "Expression"
+								},
+								"Source": {
+									"value": "@pipeline().parameters.Source",
+									"type": "Expression"
+								},
+								"Synapse_Url_Secret_Name": {
+									"value": "@pipeline().parameters.Synapse_Url_Secret_Name",
+									"type": "Expression"
+								},
+								"ADLS_Storage_Key_Secret_Name": {
+									"value": "@pipeline().parameters.ADLS_Storage_Key_Secret_Name",
+									"type": "Expression"
+								},
+								"Temp_Dir": {
+									"value": "@pipeline().parameters.Temp_Dir",
+									"type": "Expression"
+								},
+								"Repo_Name": {
+									"value": "@pipeline().parameters.Repo_Name",
+									"type": "Expression"
+								},
+								"ADLS_Storage_Name": {
+									"value": "@pipeline().parameters.ADLS_Storage_Name",
+									"type": "Expression"
+								},
+								"logger_name": {
+									"value": "@pipeline().parameters.logger_name",
+									"type": "Expression"
+								},
+								"recipient_list": {
+									"value": "@pipeline().parameters.recipient_list",
+									"type": "Expression"
+								},
+								"Published_Db_Name": {
+									"value": "@pipeline().parameters.Published_Db_Name",
+									"type": "Expression"
+								},
+								"Is_Adhoc": {
+									"value": "@pipeline().parameters.Is_Adhoc",
+									"type": "Expression"
+								},
+								"Repo_Path": {
+									"value": "@pipeline().globalParameters.RepoPath",
+									"type": "Expression"
+								},
+								"Is_Rerun": {
+									"value": "@pipeline().parameters.Is_Rerun",
+									"type": "Expression"
+								},
+								"Stage4_Threads": {
+									"value": "@pipeline().parameters.Stage4_Threads",
+									"type": "Expression"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('AzureDatabricks1')]",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Complete_batchid",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "Tbg_CanDim_To_Synapse",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().globalParameters.RepoPath,'/Databricks/Notebooks/Utils/batchid_Rerun_handler')",
+								"type": "Expression"
+							},
+							"baseParameters": {
+								"Batch_Status": {
+									"value": "End",
+									"type": "Expression"
+								},
+								"Source": {
+									"value": "@pipeline().parameters.Source",
+									"type": "Expression"
+								},
+								"logger_name": {
+									"value": "@pipeline().parameters.logger_name",
+									"type": "Expression"
+								},
+								"recipient_list": {
+									"value": "@pipeline().parameters.recipient_list",
+									"type": "Expression"
+								},
+								"Is_Rerun": {
+									"value": "@pipeline().parameters.Is_Rerun",
+									"type": "Expression"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('AzureDatabricks1')]",
+							"type": "LinkedServiceReference"
+						}
+					}
+				],
+				"concurrency": 1,
+				"parameters": {
+					"pipeline_name": {
+						"type": "string"
+					},
+					"env": {
+						"type": "string"
+					},
+					"Stage": {
+						"type": "string"
+					},
+					"Source": {
+						"type": "string"
+					},
+					"Synapse_Url_Secret_Name": {
+						"type": "string"
+					},
+					"ADLS_Storage_Key_Secret_Name": {
+						"type": "string"
+					},
+					"Temp_Dir": {
+						"type": "string"
+					},
+					"Repo_Name": {
+						"type": "string"
+					},
+					"ADLS_Storage_Name": {
+						"type": "string"
+					},
+					"logger_name": {
+						"type": "string"
+					},
+					"recipient_list": {
+						"type": "string"
+					},
+					"Published_Db_Name": {
+						"type": "string"
+					},
+					"Is_Adhoc": {
+						"type": "string"
+					},
+					"Repo_Path": {
+						"type": "string"
+					},
+					"Is_Rerun": {
+						"type": "string"
+					},
+					"Stage4_Threads": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Generic"
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-04-07T16:03:03Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Tbg_Generic_Archive_Files')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Tbg_Archive_Files",
+						"type": "DatabricksNotebook",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.04:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 60,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": {
+								"value": "@concat(pipeline().globalParameters.RepoPath,'/Databricks/Notebooks/Archive_Files/Tbg_Archive_Files')",
+								"type": "Expression"
+							},
+							"baseParameters": {
+								"Source": {
+									"value": "@pipeline().parameters.Source",
+									"type": "Expression"
+								},
+								"pipeline_name": {
+									"value": "@pipeline().parameters.pipeline_name",
+									"type": "Expression"
+								},
+								"Stage": "Archive",
+								"env": {
+									"value": "@pipeline().parameters.env",
+									"type": "Expression"
+								},
+								"Repo_Name": {
+									"value": "@pipeline().parameters.Repo_Name",
+									"type": "Expression"
+								},
+								"recipient_list": {
+									"value": "@pipeline().parameters.recipient_list",
+									"type": "Expression"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('AzureDatabricks1')]",
+							"type": "LinkedServiceReference"
+						}
+					}
+				],
+				"concurrency": 1,
+				"parameters": {
+					"Source": {
+						"type": "string"
+					},
+					"pipeline_name": {
+						"type": "string"
+					},
+					"env": {
+						"type": "string"
+					},
+					"Stage": {
+						"type": "string",
+						"defaultValue": "Archive"
+					},
+					"Repo_Name": {
+						"type": "string"
+					},
+					"recipient_list": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Generic"
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-04-07T16:03:03Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Ds_Delta_Lake_Config1')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('LS_DeltaLake')]",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureDatabricksDeltaLakeDataset",
+				"typeProperties": {
+					"database": "tbg_global",
+					"table": "tbg_config"
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Ds_Sftp_Iri')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('Sftp1')]",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"directory": {
+						"type": "string"
+					},
+					"filename": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "SftpLocation",
+						"fileName": {
+							"value": "@dataset().filename",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().directory",
+							"type": "Expression"
+						}
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": ""
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Ds_Sftp_Raw')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('LS_AzureBlobStorage_Prod')]",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"container": {
+						"type": "string"
+					},
+					"directory": {
+						"type": "string"
+					},
+					"filename": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"fileName": {
+							"value": "@dataset().filename",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().directory",
+							"type": "Expression"
+						},
+						"container": {
+							"value": "@dataset().container",
+							"type": "Expression"
+						}
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": ""
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Binary_AzureBlob')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('LS_AzureBlobStorage_Prod')]",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"FileName": {
+						"type": "string"
+					},
+					"Container": {
+						"type": "string"
+					},
+					"Directory": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"fileName": {
+							"value": "@dataset().FileName",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().Directory",
+							"type": "Expression"
+						},
+						"container": {
+							"value": "@dataset().Container",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			"dependsOn": []
+		}
+	]
+}
