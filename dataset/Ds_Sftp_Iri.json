@@ -2,7 +2,7 @@
 	"name": "Ds_Sftp_Iri",
 	"properties": {
 		"linkedServiceName": {
-			"referenceName": "Sftp1",
+			"referenceName": "Ls_Sftp_Iri",
 			"type": "LinkedServiceReference"
 		},
 		"parameters": {
@@ -30,8 +30,9 @@
 			"columnDelimiter": ",",
 			"escapeChar": "\\",
 			"firstRowAsHeader": true,
-			"quoteChar": ""
+			"quoteChar": "\""
 		},
 		"schema": []
-	}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
 }

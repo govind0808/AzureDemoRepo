@@ -1,16 +1,21 @@
 {
-	"name": "LS_AzureSynapseAnalytics",
+	"name": "Ls_Sftp_Iri",
 	"type": "Microsoft.DataFactory/factories/linkedservices",
 	"properties": {
-		"type": "AzureSqlDW",
+		"type": "Sftp",
 		"typeProperties": {
-			"connectionString": {
+			"host": "sftpna.iriworldwide.com",
+			"port": 22,
+			"skipHostKeyValidation": true,
+			"authenticationType": "Basic",
+			"userName": "natrpsm7ftp",
+			"password": {
 				"type": "AzureKeyVaultSecret",
 				"store": {
 					"referenceName": "LS_AzureKeyVault",
 					"type": "LinkedServiceReference"
 				},
-				"secretName": "Prd-Database-tbg-retail-analytics-dwh-dsqlpool-prod"
+				"secretName": "az-sftp-Iri"
 			}
 		},
 		"connectVia": {

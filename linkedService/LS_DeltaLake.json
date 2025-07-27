@@ -2,7 +2,6 @@
 	"name": "LS_DeltaLake",
 	"type": "Microsoft.DataFactory/factories/linkedservices",
 	"properties": {
-		"annotations": [],
 		"type": "AzureDatabricksDeltaLake",
 		"typeProperties": {
 			"domain": "https://adb-1937483004172241.1.azuredatabricks.net",
@@ -15,6 +14,7 @@
 				},
 				"secretName": "az-adb-token"
 			}
-		}
+		},
+		"annotations": []
 	}
 }
