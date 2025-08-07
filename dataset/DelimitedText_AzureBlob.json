@@ -1,0 +1,57 @@
+{
+	"name": "DelimitedText_AzureBlob",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureBlobStorage2",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"Container": {
+				"type": "string"
+			},
+			"Directory": {
+				"type": "string"
+			},
+			"FileName": {
+				"type": "string"
+			},
+			"Column_Delimiter": {
+				"type": "string"
+			},
+			"FileHeader": {
+				"type": "bool",
+				"defaultValue": true
+			}
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"fileName": {
+					"value": "@dataset().FileName",
+					"type": "Expression"
+				},
+				"folderPath": {
+					"value": "@dataset().Directory",
+					"type": "Expression"
+				},
+				"container": {
+					"value": "@dataset().Container",
+					"type": "Expression"
+				}
+			},
+			"columnDelimiter": {
+				"value": "@dataset().Column_Delimiter",
+				"type": "Expression"
+			},
+			"escapeChar": "\\",
+			"firstRowAsHeader": {
+				"value": "@dataset().FileHeader",
+				"type": "Expression"
+			},
+			"quoteChar": "\""
+		},
+		"schema": []
+	}
+}

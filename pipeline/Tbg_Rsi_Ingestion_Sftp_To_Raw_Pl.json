@@ -1,0 +1,942 @@
+{
+	"name": "Tbg_Rsi_Ingestion_Sftp_To_Raw_Pl",
+	"properties": {
+		"activities": [
+			{
+				"name": "Set_Month",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "month",
+					"value": {
+						"value": "@concat('MM=',formatDateTime(addDays(utcNow(),0),'MM'))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Year",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "year",
+					"value": {
+						"value": "@concat('YYYY=',formatDateTime(utcNow(),'yyyy'))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Date",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "date",
+					"value": {
+						"value": "@concat('DD=',formatDateTime(addDays(utcNow(),0),'dd'))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Get_Sftp_Folder_Metadata",
+				"type": "GetMetadata",
+				"dependsOn": [
+					{
+						"activity": "Set_Month",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_Year",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_Date",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "Binary_RSI_SFTP",
+						"type": "DatasetReference",
+						"parameters": {
+							"FileName": {
+								"value": "@pipeline().parameters.FileName",
+								"type": "Expression"
+							},
+							"SFTPServerPath": {
+								"value": "@pipeline().parameters.SFTPServerPath",
+								"type": "Expression"
+							}
+						}
+					},
+					"fieldList": [
+						"childItems"
+					],
+					"storeSettings": {
+						"type": "SftpReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false,
+						"disableChunking": false
+					},
+					"formatSettings": {
+						"type": "BinaryReadSettings"
+					}
+				}
+			},
+			{
+				"name": "Set_Enumerate_Containers_List_Length",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Get_Sftp_Folder_Metadata",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "EnumerateContainersList_Length",
+					"value": {
+						"value": "@string(length(activity('Get_Sftp_Folder_Metadata').output.childItems))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Filtering_File",
+				"type": "Filter",
+				"dependsOn": [
+					{
+						"activity": "Set_Enumerate_Containers_List_Length",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get_Sftp_Folder_Metadata').output.childItems",
+						"type": "Expression"
+					},
+					"condition": {
+						"value": "@equals(item().type,'File')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Filter_Datafile",
+				"type": "Filter",
+				"dependsOn": [
+					{
+						"activity": "Filtering_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Filtering_File').output.Value",
+						"type": "Expression"
+					},
+					"condition": {
+						"value": "@contains(item().name,concat(pipeline().parameters.SourceName,'_Data'))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Filter_Product_Master_File",
+				"type": "Filter",
+				"dependsOn": [
+					{
+						"activity": "Filtering_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Filtering_File').output.Value",
+						"type": "Expression"
+					},
+					"condition": {
+						"value": "@contains(item().name,concat(pipeline().parameters.SourceName,'_ProductMaster'))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Filter_Store_Master_File",
+				"type": "Filter",
+				"dependsOn": [
+					{
+						"activity": "Filtering_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Filtering_File').output.Value",
+						"type": "Expression"
+					},
+					"condition": {
+						"value": "@contains(item().name,concat(pipeline().parameters.SourceName,'_StoreMaster'))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Check_Multiple_Files",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Filter_Datafile",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Filter_Product_Master_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Filter_Store_Master_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Filter_DC_Data_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Filter_DC_Master_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@or(\n    or(\n        greater(activity('Filter_Datafile').output.FilteredItemsCount, 1 )\n        ,greater(activity('Filter_Product_Master_File').output.FilteredItemsCount, 1 )\n    )\n    , greater(activity('Filter_Store_Master_File').output.FilteredItemsCount, 1 ))",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "Set_Failed",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Status",
+								"value": "Failed"
+							}
+						},
+						{
+							"name": "Multiple_File_Failure_Mail",
+							"type": "WebActivity",
+							"dependsOn": [
+								{
+									"activity": "Set_Failed",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "POST",
+								"headers": {
+									"Content-Type": {
+										"value": "application/json",
+										"type": "Expression"
+									}
+								},
+								"url": {
+									"value": "@pipeline().globalParameters.LogicApp_generic_pl_failure_email",
+									"type": "Expression"
+								},
+								"body": {
+									"value": "{\t\n\t\"Environment\":\"@{pipeline().globalParameters.Environment}\",\n    \"DataFactoryName\":\"@{pipeline().DataFactory}\",\n\t\"ErrorMessage\":\"Pipeline execution failed due to Multiple files in SFTP server\",\n\t\"RunId\":\"@{pipeline().RunId}\",\n\t\"pipelineName\":\"@{pipeline().Pipeline}\",\n    \"SourceType\":\"@{pipeline().parameters.SourceName}\",\n\t\"FileName\":\"\"\n    \n}",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Fail_Multiple_File",
+							"type": "Fail",
+							"dependsOn": [
+								{
+									"activity": "Multiple_File_Failure_Mail",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"message": {
+									"value": "@'Pipeline Execution failed due to multiple files in SFTP Server'",
+									"type": "Expression"
+								},
+								"errorCode": "Multiple Files"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Check_Availability_Of_Datafile",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Check_Multiple_Files",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@and(\n    and(\n        equals(activity('Filter_Datafile').output.FilteredItemsCount, 1 )\n        ,lessOrEquals(activity('Filter_Product_Master_File').output.FilteredItemsCount, 1 )\n    )\n    , lessOrEquals(activity('Filter_Store_Master_File').output.FilteredItemsCount, 1 ))",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Retailer_Files_Not_Received_Mail",
+							"type": "WebActivity",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "POST",
+								"headers": {
+									"Content-Type": {
+										"value": "application/json",
+										"type": "Expression"
+									}
+								},
+								"url": {
+									"value": "@pipeline().globalParameters.LogicApp_generic_pl_file_missing_failure_email",
+									"type": "Expression"
+								},
+								"body": {
+									"value": "{\n\t\"Environment\":\"@{pipeline().globalParameters.Environment}\",\n    \"DataFactoryName\":\"@{pipeline().Pipeline}\",\n\t\"RunId\":\"@{pipeline().RunId}\",\n\t\"pipelineName\":\"@{pipeline().Pipeline}\",\n\t\"ErrorMessage\":\"Files are not yet received for retailer\",\n\t\"SourceType\":\"@{pipeline().parameters.SourceName}\"\n}\n",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Fail_Files_Missing_Pipeline",
+							"type": "Fail",
+							"dependsOn": [
+								{
+									"activity": "Retailer_Files_Not_Received_Mail",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"message": {
+									"value": "Pipeline failed due to files are not available",
+									"type": "Expression"
+								},
+								"errorCode": "500"
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Copy_RSI_DATA_File_from_SFTP_Server",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "BinarySource",
+									"storeSettings": {
+										"type": "SftpReadSettings",
+										"recursive": true,
+										"deleteFilesAfterCompletion": false,
+										"disableChunking": false
+									},
+									"formatSettings": {
+										"type": "BinaryReadSettings"
+									}
+								},
+								"sink": {
+									"type": "BinarySink",
+									"storeSettings": {
+										"type": "AzureBlobStorageWriteSettings"
+									}
+								},
+								"enableStaging": false
+							},
+							"inputs": [
+								{
+									"referenceName": "Binary_RSI_SFTP",
+									"type": "DatasetReference",
+									"parameters": {
+										"FileName": {
+											"value": "@activity('Filter_Datafile').output.Value[0].name",
+											"type": "Expression"
+										},
+										"SFTPServerPath": {
+											"value": "@pipeline().parameters.SFTPServerPath",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "Binary_AzureBlob1",
+									"type": "DatasetReference",
+									"parameters": {
+										"FileName": {
+											"value": "@activity('Filter_Datafile').output.Value[0].name",
+											"type": "Expression"
+										},
+										"Container": {
+											"value": "@pipeline().globalParameters.SourceContainer",
+											"type": "Expression"
+										},
+										"Directory": {
+											"value": "@concat(pipeline().parameters.BlobDirectoryName,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				"name": "Check_Availability_Of_Product_Master_File",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Check_Availability_Of_Datafile",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@and(\n    and(\n        equals(activity('Filter_Datafile').output.FilteredItemsCount, 1 )\n        ,equals(activity('Filter_Product_Master_File').output.FilteredItemsCount, 1 )\n    )\n    , lessOrEquals(activity('Filter_Store_Master_File').output.FilteredItemsCount, 1 ))",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "Copy_RSI_Product_Master_File_From_Sftp_Server",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "BinarySource",
+									"storeSettings": {
+										"type": "SftpReadSettings",
+										"recursive": true,
+										"deleteFilesAfterCompletion": false,
+										"disableChunking": false
+									},
+									"formatSettings": {
+										"type": "BinaryReadSettings"
+									}
+								},
+								"sink": {
+									"type": "BinarySink",
+									"storeSettings": {
+										"type": "AzureBlobStorageWriteSettings"
+									}
+								},
+								"enableStaging": false
+							},
+							"inputs": [
+								{
+									"referenceName": "Binary_RSI_SFTP",
+									"type": "DatasetReference",
+									"parameters": {
+										"FileName": {
+											"value": "@activity('Filter_Product_Master_File').output.Value[0].name",
+											"type": "Expression"
+										},
+										"SFTPServerPath": {
+											"value": "@pipeline().parameters.SFTPServerPath",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "Binary_AzureBlob1",
+									"type": "DatasetReference",
+									"parameters": {
+										"FileName": {
+											"value": "@activity('Filter_Product_Master_File').output.Value[0].name",
+											"type": "Expression"
+										},
+										"Container": {
+											"value": "@pipeline().globalParameters.SourceContainer",
+											"type": "Expression"
+										},
+										"Directory": {
+											"value": "@concat(pipeline().parameters.BlobDirectoryName,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				"name": "Check_Availability_Of_Store_Master_File",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Check_Availability_Of_Product_Master_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@and(\n    and(\n        equals(activity('Filter_Datafile').output.FilteredItemsCount, 1 )\n        ,lessOrEquals(activity('Filter_Product_Master_File').output.FilteredItemsCount, 1 )\n    )\n    , equals(activity('Filter_Store_Master_File').output.FilteredItemsCount, 1 ))",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "Copy_RSI_StoreMaster_File_from_SFTP_Server",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "BinarySource",
+									"storeSettings": {
+										"type": "SftpReadSettings",
+										"recursive": true,
+										"deleteFilesAfterCompletion": false,
+										"disableChunking": false
+									},
+									"formatSettings": {
+										"type": "BinaryReadSettings"
+									}
+								},
+								"sink": {
+									"type": "BinarySink",
+									"storeSettings": {
+										"type": "AzureBlobStorageWriteSettings"
+									}
+								},
+								"enableStaging": false
+							},
+							"inputs": [
+								{
+									"referenceName": "Binary_RSI_SFTP",
+									"type": "DatasetReference",
+									"parameters": {
+										"FileName": {
+											"value": "@activity('Filter_Store_Master_File').output.Value[0].name",
+											"type": "Expression"
+										},
+										"SFTPServerPath": {
+											"value": "@pipeline().parameters.SFTPServerPath",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "Binary_AzureBlob1",
+									"type": "DatasetReference",
+									"parameters": {
+										"FileName": {
+											"value": "@activity('Filter_Store_Master_File').output.Value[0].name",
+											"type": "Expression"
+										},
+										"Container": {
+											"value": "@pipeline().globalParameters.SourceContainer",
+											"type": "Expression"
+										},
+										"Directory": {
+											"value": "@concat(pipeline().parameters.BlobDirectoryName,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				"name": "Filter_DC_Data_File",
+				"type": "Filter",
+				"dependsOn": [
+					{
+						"activity": "Filtering_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Filtering_File').output.Value",
+						"type": "Expression"
+					},
+					"condition": {
+						"value": "@contains(item().name,concat(pipeline().parameters.SourceName,'_DCData'))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Filter_DC_Master_File",
+				"type": "Filter",
+				"dependsOn": [
+					{
+						"activity": "Filtering_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Filtering_File').output.Value",
+						"type": "Expression"
+					},
+					"condition": {
+						"value": "@contains(item().name,concat(pipeline().parameters.SourceName,'_DCMaster'))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Check_Availability_Of_DC_Master_File",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Check_Availability_Of_Store_Master_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@and(\n    and(\n        equals(activity('Filter_Datafile').output.FilteredItemsCount, 1 )\n        ,lessOrEquals(activity('Filter_Product_Master_File').output.FilteredItemsCount, 1 )\n    )\n    , equals(activity('Filter_DC_Master_File').output.FilteredItemsCount, 1 ))",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "Copy_RSI_DC_Master_File_from_SFTP_Server",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "BinarySource",
+									"storeSettings": {
+										"type": "SftpReadSettings",
+										"recursive": true,
+										"deleteFilesAfterCompletion": false,
+										"disableChunking": false
+									},
+									"formatSettings": {
+										"type": "BinaryReadSettings"
+									}
+								},
+								"sink": {
+									"type": "BinarySink",
+									"storeSettings": {
+										"type": "AzureBlobStorageWriteSettings"
+									}
+								},
+								"enableStaging": false
+							},
+							"inputs": [
+								{
+									"referenceName": "Binary_RSI_SFTP",
+									"type": "DatasetReference",
+									"parameters": {
+										"FileName": {
+											"value": "@activity('Filter_DC_Master_File').output.Value[0].name",
+											"type": "Expression"
+										},
+										"SFTPServerPath": {
+											"value": "@pipeline().parameters.SFTPServerPath",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "Binary_AzureBlob1",
+									"type": "DatasetReference",
+									"parameters": {
+										"FileName": {
+											"value": "@activity('Filter_DC_Master_File').output.Value[0].name",
+											"type": "Expression"
+										},
+										"Container": {
+											"value": "@pipeline().globalParameters.SourceContainer",
+											"type": "Expression"
+										},
+										"Directory": {
+											"value": "@concat(pipeline().parameters.BlobDirectoryName,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				"name": "Check_Availability_Of_DC_Data_File",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Check_Availability_Of_DC_Master_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@and(\n    and(\n        equals(activity('Filter_Datafile').output.FilteredItemsCount, 1 )\n        ,lessOrEquals(activity('Filter_Product_Master_File').output.FilteredItemsCount, 1 )\n    )\n    , equals(activity('Filter_DC_Data_File').output.FilteredItemsCount, 1 ))",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "Copy_RSI_DC_Data_File_from_SFTP_Server",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "BinarySource",
+									"storeSettings": {
+										"type": "SftpReadSettings",
+										"recursive": true,
+										"deleteFilesAfterCompletion": false,
+										"disableChunking": false
+									},
+									"formatSettings": {
+										"type": "BinaryReadSettings"
+									}
+								},
+								"sink": {
+									"type": "BinarySink",
+									"storeSettings": {
+										"type": "AzureBlobStorageWriteSettings"
+									}
+								},
+								"enableStaging": false
+							},
+							"inputs": [
+								{
+									"referenceName": "Binary_RSI_SFTP",
+									"type": "DatasetReference",
+									"parameters": {
+										"FileName": {
+											"value": "@activity('Filter_DC_Data_File').output.Value[0].name",
+											"type": "Expression"
+										},
+										"SFTPServerPath": {
+											"value": "@pipeline().parameters.SFTPServerPath",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "Binary_AzureBlob1",
+									"type": "DatasetReference",
+									"parameters": {
+										"FileName": {
+											"value": "@activity('Filter_DC_Data_File').output.Value[0].name",
+											"type": "Expression"
+										},
+										"Container": {
+											"value": "@pipeline().globalParameters.SourceContainer",
+											"type": "Expression"
+										},
+										"Directory": {
+											"value": "@concat(pipeline().parameters.BlobDirectoryName,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"FileName": {
+				"type": "string"
+			},
+			"BlobDirectoryName": {
+				"type": "string"
+			},
+			"SFTPServerPath": {
+				"type": "string"
+			},
+			"SFTPArchieveFolder": {
+				"type": "string"
+			},
+			"SourceName": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"month": {
+				"type": "String"
+			},
+			"year": {
+				"type": "String"
+			},
+			"date": {
+				"type": "String"
+			},
+			"EnumerateContainersList_Length": {
+				"type": "String"
+			},
+			"Status": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "RSI Retailer Ingestion/Retailer Incremental Loading"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:10Z"
+	}
+}

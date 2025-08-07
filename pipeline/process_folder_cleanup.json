@@ -1,0 +1,136 @@
+{
+	"name": "process_folder_cleanup",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get Files from Processed",
+				"type": "GetMetadata",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "DelimitedText_AzureBlob",
+						"type": "DatasetReference",
+						"parameters": {
+							"Container": {
+								"value": "@pipeline().globalParameters.SourceContainer",
+								"type": "Expression"
+							},
+							"Directory": {
+								"value": "@pipeline().parameters.ProcessedDirectory",
+								"type": "Expression"
+							},
+							"FileName": {
+								"value": "@pipeline().parameters.ProcessedFilePattern",
+								"type": "Expression"
+							},
+							"Column_Delimiter": {
+								"value": "@pipeline().parameters.ColumnDelimeter",
+								"type": "Expression"
+							}
+						}
+					},
+					"fieldList": [
+						"childItems"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "DelimitedTextReadSettings"
+					}
+				}
+			},
+			{
+				"name": "ForEach File in Processed Folder",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get Files from Processed",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get Files from Processed').output.childItems",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Delete Each File",
+							"type": "Delete",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "DelimitedText_AzureBlob",
+									"type": "DatasetReference",
+									"parameters": {
+										"Container": {
+											"value": "@pipeline().globalParameters.SourceContainer",
+											"type": "Expression"
+										},
+										"Directory": {
+											"value": "@pipeline().parameters.ProcessedDirectory",
+											"type": "Expression"
+										},
+										"FileName": {
+											"value": "@item().name",
+											"type": "Expression"
+										},
+										"Column_Delimiter": {
+											"value": "@pipeline().parameters.ColumnDelimeter",
+											"type": "Expression"
+										},
+										"FileHeader": true
+									}
+								},
+								"enableLogging": false,
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"ProcessedFilePattern": {
+				"type": "string",
+				"defaultValue": "*.csv"
+			},
+			"ProcessedDirectory": {
+				"type": "string",
+				"defaultValue": "Tropicana/Retail/Inbound/Processed/RSI/YYYY=2022/MM=11/DD=14"
+			},
+			"ColumnDelimeter": {
+				"type": "string",
+				"defaultValue": "|"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:08Z"
+	}
+}

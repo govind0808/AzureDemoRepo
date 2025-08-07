@@ -1,0 +1,1328 @@
+{
+	"name": "Tbg_Rsi_Ingestion_Raw_To_Process_Pl",
+	"properties": {
+		"description": "This pipeline is used to copy the files from raw folder to processed folder",
+		"activities": [
+			{
+				"name": "Get_Metadata_Of_Raw",
+				"type": "GetMetadata",
+				"dependsOn": [
+					{
+						"activity": "Set_Month",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_Year",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_Date",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "DelimitedText_AzureBlob",
+						"type": "DatasetReference",
+						"parameters": {
+							"Container": {
+								"value": "@pipeline().globalParameters.SourceContainer",
+								"type": "Expression"
+							},
+							"Directory": {
+								"value": "@concat(pipeline().parameters.RawDirectory,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+								"type": "Expression"
+							},
+							"FileName": {
+								"value": "@pipeline().parameters.RawFilePatterns",
+								"type": "Expression"
+							},
+							"Column_Delimiter": {
+								"value": "@pipeline().parameters.ColumnDelimeter",
+								"type": "Expression"
+							},
+							"FileHeader": true
+						}
+					},
+					"fieldList": [
+						"childItems"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "DelimitedTextReadSettings"
+					}
+				}
+			},
+			{
+				"name": "Looping_Through_Each_Raw_File",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get_Metadata_Of_Raw",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get_Metadata_Of_Raw').output.childItems",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Set_Processed_Basefile_Name",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "baseFileName",
+								"value": {
+									"value": "@split(item().name,'-')[0]",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Sp_Create_Processedlayer_Failed_Ingestion_Auditlog",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Different_File_Extensions",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[sp_create_ingestion_auditlog]",
+								"storedProcedureParameters": {
+									"IngestionEndTime": {
+										"value": {
+											"value": "@utcNow()",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"IngestionStartTime": {
+										"value": {
+											"value": "@pipeline().TriggerTime",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"PipelineRunId": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"SourceName": {
+										"value": {
+											"value": "@concat(pipeline().parameters.RawDirectory,'/',item().name)",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"SourceRowCount": {
+										"value": {
+											"value": "0",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"SourceType": {
+										"value": {
+											"value": "Raw Layer",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"Status": {
+										"value": {
+											"value": "Failed",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"TargetName": {
+										"value": {
+											"value": "@concat(pipeline().parameters.ProcessedDirectory,'/',variables('baseFileName'),'_',formatDateTime(utcNow(),'yyyyMMdd'),'.csv')",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"TargetRowCount": {
+										"value": {
+											"value": "0",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"TargetType": {
+										"value": {
+											"value": "Processed Layer",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"MasterPipelineId": {
+										"value": {
+											"value": "@pipeline().parameters.MasterPipelineId",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"MasterPipelineName": {
+										"value": {
+											"value": "@pipeline().parameters.MasterPipelineName",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"PipelineName": {
+										"value": {
+											"value": "@pipeline().Pipeline",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"StatusMessage": {
+										"value": {
+											"value": "@variables('errorMsg')",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"ErrorCode": {
+										"value": {
+											"value": "@variables('errorCode')",
+											"type": "Expression"
+										}
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Different_File_Extensions",
+							"type": "Switch",
+							"dependsOn": [
+								{
+									"activity": "Set_Processed_Basefile_Name",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"on": {
+									"value": "@pipeline().parameters.RawFileExtension",
+									"type": "Expression"
+								},
+								"cases": [
+									{
+										"value": "zip",
+										"activities": [
+											{
+												"name": "Copy_Zip_Files_Raw_To_Processed",
+												"type": "Copy",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"source": {
+														"type": "DelimitedTextSource",
+														"storeSettings": {
+															"type": "AzureBlobStorageReadSettings",
+															"recursive": true,
+															"enablePartitionDiscovery": false
+														},
+														"formatSettings": {
+															"type": "DelimitedTextReadSettings",
+															"compressionProperties": {
+																"type": "ZipDeflateReadSettings"
+															}
+														}
+													},
+													"sink": {
+														"type": "DelimitedTextSink",
+														"storeSettings": {
+															"type": "AzureBlobStorageWriteSettings"
+														},
+														"formatSettings": {
+															"type": "DelimitedTextWriteSettings",
+															"quoteAllText": true,
+															"fileExtension": ".txt"
+														}
+													},
+													"enableStaging": false,
+													"translator": {
+														"type": "TabularTranslator",
+														"typeConversion": true,
+														"typeConversionSettings": {
+															"allowDataTruncation": true,
+															"treatBooleanAsNumber": false
+														}
+													}
+												},
+												"inputs": [
+													{
+														"referenceName": "ZIP_DelimitedText_AzureBlob",
+														"type": "DatasetReference",
+														"parameters": {
+															"Container": {
+																"value": "@pipeline().globalParameters.SourceContainer",
+																"type": "Expression"
+															},
+															"Directory": {
+																"value": "@concat(pipeline().parameters.RawDirectory,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+																"type": "Expression"
+															},
+															"FileName": {
+																"value": "@item().name",
+																"type": "Expression"
+															},
+															"Column_Delimiter": {
+																"value": "@pipeline().parameters.ColumnDelimeter",
+																"type": "Expression"
+															}
+														}
+													}
+												],
+												"outputs": [
+													{
+														"referenceName": "DelimitedText_AzureBlob",
+														"type": "DatasetReference",
+														"parameters": {
+															"Container": {
+																"value": "@pipeline().globalParameters.SourceContainer",
+																"type": "Expression"
+															},
+															"Directory": {
+																"value": "@concat(pipeline().parameters.ProcessedDirectory,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+																"type": "Expression"
+															},
+															"FileName": {
+																"value": "@concat(variables('baseFileName'),'_',formatDateTime(utcNow(),'yyyyMMdd'),'.csv')",
+																"type": "Expression"
+															},
+															"Column_Delimiter": {
+																"value": "|",
+																"type": "Expression"
+															},
+															"FileHeader": false
+														}
+													}
+												]
+											},
+											{
+												"name": "Set_Copy_Zip_Files_Files_Read",
+												"type": "SetVariable",
+												"dependsOn": [
+													{
+														"activity": "Copy_Zip_Files_Raw_To_Processed",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "filesRead",
+													"value": {
+														"value": "@string(activity('Copy_Zip_Files_Raw_To_Processed').output.filesRead)",
+														"type": "Expression"
+													}
+												}
+											},
+											{
+												"name": "Set_Copy_Zip_Files_Files_Written",
+												"type": "SetVariable",
+												"dependsOn": [
+													{
+														"activity": "Copy_Zip_Files_Raw_To_Processed",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "filesWritten",
+													"value": {
+														"value": "@string(activity('Copy_Zip_Files_Raw_To_Processed').output.filesWritten)",
+														"type": "Expression"
+													}
+												}
+											},
+											{
+												"name": "Set_Copy_Zip_Files_Error_Msg",
+												"type": "SetVariable",
+												"dependsOn": [
+													{
+														"activity": "Copy_Zip_Files_Raw_To_Processed",
+														"dependencyConditions": [
+															"Failed"
+														]
+													}
+												],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "errorMsg",
+													"value": {
+														"value": "@activity('Copy_Zip_Files_Raw_To_Processed').output.errors[0].Message",
+														"type": "Expression"
+													}
+												}
+											},
+											{
+												"name": "Set_Copy_Zip_Files_Error_Code",
+												"type": "SetVariable",
+												"dependsOn": [
+													{
+														"activity": "Copy_Zip_Files_Raw_To_Processed",
+														"dependencyConditions": [
+															"Failed"
+														]
+													}
+												],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "errorCode",
+													"value": {
+														"value": "@activity('Copy_Zip_Files_Raw_To_Processed').Error.errorCode",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									}
+								],
+								"defaultActivities": [
+									{
+										"name": "Copydata_Raw_To_Processed",
+										"description": "This is used to copy data from Raw folder to Processed Folder",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "DelimitedTextSource",
+												"storeSettings": {
+													"type": "AzureBlobStorageReadSettings",
+													"recursive": true,
+													"enablePartitionDiscovery": false
+												},
+												"formatSettings": {
+													"type": "DelimitedTextReadSettings"
+												}
+											},
+											"sink": {
+												"type": "DelimitedTextSink",
+												"storeSettings": {
+													"type": "AzureBlobStorageWriteSettings",
+													"copyBehavior": "PreserveHierarchy"
+												},
+												"formatSettings": {
+													"type": "DelimitedTextWriteSettings",
+													"quoteAllText": true,
+													"fileExtension": ".txt"
+												}
+											},
+											"enableStaging": true,
+											"stagingSettings": {
+												"linkedServiceName": {
+													"referenceName": "AzureBlobStorage2",
+													"type": "LinkedServiceReference"
+												},
+												"path": {
+													"value": "@concat(pipeline().globalParameters.SourceContainer,'/Tropicana/Log')",
+													"type": "Expression"
+												}
+											},
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "DelimitedText_AzureBlob",
+												"type": "DatasetReference",
+												"parameters": {
+													"Container": {
+														"value": "@pipeline().globalParameters.SourceContainer",
+														"type": "Expression"
+													},
+													"Directory": {
+														"value": "@concat(pipeline().parameters.RawDirectory,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+														"type": "Expression"
+													},
+													"FileName": {
+														"value": "@item().name",
+														"type": "Expression"
+													},
+													"Column_Delimiter": {
+														"value": "@pipeline().parameters.ColumnDelimeter",
+														"type": "Expression"
+													},
+													"FileHeader": true
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "DelimitedText_AzureBlob",
+												"type": "DatasetReference",
+												"parameters": {
+													"Container": {
+														"value": "@pipeline().globalParameters.SourceContainer",
+														"type": "Expression"
+													},
+													"Directory": {
+														"value": "@concat(pipeline().parameters.ProcessedDirectory,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+														"type": "Expression"
+													},
+													"FileName": {
+														"value": "@concat(variables('baseFileName'),'_',formatDateTime(utcNow(),'yyyyMMdd'),'.csv')",
+														"type": "Expression"
+													},
+													"Column_Delimiter": {
+														"value": "|",
+														"type": "Expression"
+													},
+													"FileHeader": true
+												}
+											}
+										]
+									},
+									{
+										"name": "Set_Copydata_Raw_To_Processed_Files_Read",
+										"type": "SetVariable",
+										"dependsOn": [
+											{
+												"activity": "Copydata_Raw_To_Processed",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "filesRead",
+											"value": {
+												"value": "@string(activity('Copydata_Raw_To_Processed').output.filesRead)",
+												"type": "Expression"
+											}
+										}
+									},
+									{
+										"name": "Set_Copydata_Raw_To_Processed_Files_Written",
+										"type": "SetVariable",
+										"dependsOn": [
+											{
+												"activity": "Copydata_Raw_To_Processed",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "filesWritten",
+											"value": {
+												"value": "@string(activity('Copydata_Raw_To_Processed').output.filesWritten)",
+												"type": "Expression"
+											}
+										}
+									},
+									{
+										"name": "Set_Error_Msg",
+										"type": "SetVariable",
+										"dependsOn": [
+											{
+												"activity": "Copydata_Raw_To_Processed",
+												"dependencyConditions": [
+													"Failed"
+												]
+											}
+										],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "errorMsg",
+											"value": {
+												"value": "@activity('Copydata_Raw_To_Processed').output.errors[0].Message",
+												"type": "Expression"
+											}
+										}
+									},
+									{
+										"name": "Set ErrorCode",
+										"type": "SetVariable",
+										"dependsOn": [
+											{
+												"activity": "Copydata_Raw_To_Processed",
+												"dependencyConditions": [
+													"Failed"
+												]
+											}
+										],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "errorCode",
+											"value": {
+												"value": "@activity('Copydata_Raw_To_Processed').Error.errorCode",
+												"type": "Expression"
+											}
+										}
+									}
+								]
+							}
+						},
+						{
+							"name": "Get_File_Size",
+							"type": "GetMetadata",
+							"dependsOn": [
+								{
+									"activity": "Different_File_Extensions",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "DelimitedText_AzureBlob",
+									"type": "DatasetReference",
+									"parameters": {
+										"Container": {
+											"value": "@pipeline().globalParameters.SourceContainer",
+											"type": "Expression"
+										},
+										"Directory": {
+											"value": "@concat(pipeline().parameters.ProcessedDirectory,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+											"type": "Expression"
+										},
+										"FileName": {
+											"value": "@concat(variables('baseFileName'),'_',formatDateTime(utcNow(),'yyyyMMdd'),'.csv')",
+											"type": "Expression"
+										},
+										"Column_Delimiter": {
+											"value": "|",
+											"type": "Expression"
+										},
+										"FileHeader": false
+									}
+								},
+								"fieldList": [
+									"size",
+									"itemName",
+									"itemType"
+								],
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							}
+						},
+						{
+							"name": "Check_File_Size_Greater_Than_Zero",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "Get_File_Size",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@greater(\nactivity('Get_File_Size').output.size, 0)",
+									"type": "Expression"
+								},
+								"ifFalseActivities": [
+									{
+										"name": "Fail_Zero_Size_File",
+										"type": "Fail",
+										"dependsOn": [
+											{
+												"activity": "Set_Error_Message_Notification",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"userProperties": [],
+										"typeProperties": {
+											"message": "Load failed due to zero kb file",
+											"errorCode": "100"
+										}
+									},
+									{
+										"name": "Set_Error_Message_Notification",
+										"type": "SetVariable",
+										"dependsOn": [
+											{
+												"activity": "Delete_From_Raw_Blob",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "ErrorMessage_Notification",
+											"value": {
+												"value": "Pipeline execution failed due to zero kb file",
+												"type": "Expression"
+											}
+										}
+									},
+									{
+										"name": "Delete_From_Raw_Blob",
+										"type": "Delete",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"dataset": {
+												"referenceName": "DelimitedText_AzureBlob",
+												"type": "DatasetReference",
+												"parameters": {
+													"Container": {
+														"value": "@pipeline().globalParameters.SourceContainer",
+														"type": "Expression"
+													},
+													"Directory": {
+														"value": "@concat(pipeline().parameters.RawDirectory,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+														"type": "Expression"
+													},
+													"FileName": {
+														"value": "@item().name",
+														"type": "Expression"
+													},
+													"Column_Delimiter": {
+														"value": "@pipeline().parameters.ColumnDelimeter",
+														"type": "Expression"
+													},
+													"FileHeader": true
+												}
+											},
+											"enableLogging": false,
+											"storeSettings": {
+												"type": "AzureBlobStorageReadSettings",
+												"recursive": true,
+												"enablePartitionDiscovery": false
+											}
+										}
+									}
+								],
+								"ifTrueActivities": [
+									{
+										"name": "Sp_Create_Processedlayer_Success_Ingestion_Auditlog",
+										"type": "SqlServerStoredProcedure",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"storedProcedureName": "[dbo].[sp_create_ingestion_auditlog]",
+											"storedProcedureParameters": {
+												"IngestionEndTime": {
+													"value": {
+														"value": "@utcNow()",
+														"type": "Expression"
+													},
+													"type": "DateTime"
+												},
+												"IngestionStartTime": {
+													"value": {
+														"value": "@pipeline().TriggerTime",
+														"type": "Expression"
+													},
+													"type": "DateTime"
+												},
+												"PipelineRunId": {
+													"value": {
+														"value": "@pipeline().RunId",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"SourceName": {
+													"value": {
+														"value": "@concat(pipeline().parameters.RawDirectory,'/',item().name)",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"SourceRowCount": {
+													"value": {
+														"value": "@int(variables('filesRead'))",
+														"type": "Expression"
+													},
+													"type": "Int32"
+												},
+												"SourceType": {
+													"value": {
+														"value": "Raw Layer",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"Status": {
+													"value": {
+														"value": "Completed",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"TargetName": {
+													"value": {
+														"value": "@concat(pipeline().parameters.ProcessedDirectory,'/',variables('baseFileName'),'_',formatDateTime(utcNow(),'yyyyMMdd'),'.csv')",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"TargetRowCount": {
+													"value": {
+														"value": "@int(variables('filesWritten'))",
+														"type": "Expression"
+													},
+													"type": "Int32"
+												},
+												"TargetType": {
+													"value": {
+														"value": "Processed Layer",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"MasterPipelineId": {
+													"value": {
+														"value": "@pipeline().parameters.MasterPipelineId",
+														"type": "Expression"
+													}
+												},
+												"MasterPipelineName": {
+													"value": {
+														"value": "@pipeline().parameters.MasterPipelineName",
+														"type": "Expression"
+													}
+												},
+												"PipelineName": {
+													"value": {
+														"value": "@pipeline().Pipeline",
+														"type": "Expression"
+													}
+												},
+												"StatusMessage": {
+													"value": " ",
+													"type": "String"
+												},
+												"ErrorCode": {
+													"value": "000"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "LS_AzureSynapseAnalytics",
+											"type": "LinkedServiceReference"
+										}
+									},
+									{
+										"name": "Archive_Files",
+										"type": "Copy",
+										"dependsOn": [
+											{
+												"activity": "Sp_Create_Processedlayer_Success_Ingestion_Auditlog",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "DelimitedTextSource",
+												"storeSettings": {
+													"type": "AzureBlobStorageReadSettings",
+													"recursive": true,
+													"enablePartitionDiscovery": false
+												},
+												"formatSettings": {
+													"type": "DelimitedTextReadSettings"
+												}
+											},
+											"sink": {
+												"type": "DelimitedTextSink",
+												"storeSettings": {
+													"type": "AzureBlobStorageWriteSettings"
+												},
+												"formatSettings": {
+													"type": "DelimitedTextWriteSettings",
+													"quoteAllText": true,
+													"fileExtension": ".txt"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "DelimitedText_AzureBlob",
+												"type": "DatasetReference",
+												"parameters": {
+													"Container": {
+														"value": "@pipeline().globalParameters.SourceContainer",
+														"type": "Expression"
+													},
+													"Directory": {
+														"value": "@concat(pipeline().parameters.RawDirectory,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+														"type": "Expression"
+													},
+													"FileName": {
+														"value": "@item().name",
+														"type": "Expression"
+													},
+													"Column_Delimiter": {
+														"value": "@pipeline().parameters.ColumnDelimeter",
+														"type": "Expression"
+													},
+													"FileHeader": true
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "DelimitedText_AzureBlob",
+												"type": "DatasetReference",
+												"parameters": {
+													"Container": {
+														"value": "@pipeline().globalParameters.SourceContainer",
+														"type": "Expression"
+													},
+													"Directory": {
+														"value": "@concat(pipeline().parameters.ArchivedDirectory,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+														"type": "Expression"
+													},
+													"FileName": {
+														"value": "@item().name",
+														"type": "Expression"
+													},
+													"Column_Delimiter": {
+														"value": "@pipeline().parameters.ColumnDelimeter",
+														"type": "Expression"
+													},
+													"FileHeader": true
+												}
+											}
+										]
+									},
+									{
+										"name": "Delete_From_Raw",
+										"type": "Delete",
+										"dependsOn": [
+											{
+												"activity": "Archive_Files",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"dataset": {
+												"referenceName": "DelimitedText_AzureBlob",
+												"type": "DatasetReference",
+												"parameters": {
+													"Container": {
+														"value": "@pipeline().globalParameters.SourceContainer",
+														"type": "Expression"
+													},
+													"Directory": {
+														"value": "@concat(pipeline().parameters.RawDirectory,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+														"type": "Expression"
+													},
+													"FileName": {
+														"value": "@item().name",
+														"type": "Expression"
+													},
+													"Column_Delimiter": {
+														"value": "@pipeline().parameters.ColumnDelimeter",
+														"type": "Expression"
+													},
+													"FileHeader": true
+												}
+											},
+											"enableLogging": false,
+											"storeSettings": {
+												"type": "AzureBlobStorageReadSettings",
+												"recursive": true,
+												"enablePartitionDiscovery": false
+											}
+										}
+									}
+								]
+							}
+						},
+						{
+							"name": "Fail_Raw_To_Process_Pipeline",
+							"type": "Fail",
+							"dependsOn": [
+								{
+									"activity": "Failure_Email",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"message": "Inner activity failed",
+								"errorCode": "100"
+							}
+						},
+						{
+							"name": "Failure_Email",
+							"type": "WebActivity",
+							"dependsOn": [
+								{
+									"activity": "Sp_Create_Processedlayer_Failed_Ingestion_Auditlog",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "POST",
+								"headers": {
+									"Content-Type": "application/json"
+								},
+								"url": {
+									"value": "@pipeline().globalParameters.LogicApp_generic_pl_failure_email",
+									"type": "Expression"
+								},
+								"body": {
+									"value": "{\n    \"Environment\":\"@{pipeline().globalParameters.Environment}\",\n\t\"DataFactoryName\":\"@{pipeline().Pipeline}\",\n\t\"ErrorMessage\":\"@{variables('ErrorMessage_Notification')}\",\n\t\"RunId\":\"@{pipeline().RunId}\",\n\t\"pipelineName\":\"@{pipeline().Pipeline}\",\n\t\"SourceType\":\"@{pipeline().parameters.Source}\",\n    \"FileName\":\"@{variables('baseFileName')}\"\n}\n",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Web_Failure_Email",
+							"type": "WebActivity",
+							"dependsOn": [
+								{
+									"activity": "Check_File_Size_Greater_Than_Zero",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "POST",
+								"headers": {
+									"Content-Type": "application/json"
+								},
+								"url": {
+									"value": "@pipeline().globalParameters.LogicApp_generic_pl_failure_email",
+									"type": "Expression"
+								},
+								"body": {
+									"value": "{\n    \"Environment\":\"@{pipeline().globalParameters.Environment}\",\n\t\"DataFactoryName\":\"@{pipeline().Pipeline}\",\n\t\"ErrorMessage\":\"@{variables('ErrorMessage_Notification')}\",\n\t\"RunId\":\"@{pipeline().RunId}\",\n\t\"pipelineName\":\"@{pipeline().Pipeline}\",\n\t\"SourceType\":\"@{pipeline().parameters.Source}\",\n    \"FileName\":\"@{variables('baseFileName')}\"\n}\n",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Fail_Raw_To_Process",
+							"type": "Fail",
+							"dependsOn": [
+								{
+									"activity": "Web_Failure_Email",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"message": "Inner activity failed",
+								"errorCode": "100"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Set_Month",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "month",
+					"value": {
+						"value": "@concat('MM=',formatDateTime(utcNow(),'MM'))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Year",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "year",
+					"value": {
+						"value": "@concat('YYYY=',formatDateTime(utcNow(),'yyyy'))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Date",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "date",
+					"value": {
+						"value": "@concat('DD=',formatDateTime(addDays(utcNow(),0),'dd'))",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"RawDirectory": {
+				"type": "string"
+			},
+			"ProcessedDirectory": {
+				"type": "string"
+			},
+			"ArchivedDirectory": {
+				"type": "string"
+			},
+			"ColumnDelimeter": {
+				"type": "string"
+			},
+			"RawFilePatterns": {
+				"type": "string"
+			},
+			"MasterPipelineId": {
+				"type": "string"
+			},
+			"MasterPipelineName": {
+				"type": "string"
+			},
+			"RawFileExtension": {
+				"type": "string"
+			},
+			"Source": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"baseFileName": {
+				"type": "String"
+			},
+			"month": {
+				"type": "String"
+			},
+			"year": {
+				"type": "String"
+			},
+			"date": {
+				"type": "String"
+			},
+			"filesRead": {
+				"type": "String"
+			},
+			"filesWritten": {
+				"type": "String"
+			},
+			"errorMsg": {
+				"type": "String"
+			},
+			"errorCode": {
+				"type": "String"
+			},
+			"ErrorMessage_Notification": {
+				"type": "String",
+				"defaultValue": "Error Pipeline Failed"
+			}
+		},
+		"folder": {
+			"name": "RSI Retailer Ingestion/Retailer Incremental Loading"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:11Z"
+	}
+}

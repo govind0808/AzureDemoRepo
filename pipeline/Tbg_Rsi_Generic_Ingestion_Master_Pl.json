@@ -1,0 +1,1221 @@
+{
+	"name": "Tbg_Rsi_Generic_Ingestion_Master_Pl",
+	"properties": {
+		"description": "This pipeline is data of RSI",
+		"activities": [
+			{
+				"name": "Get_All_Source_Ingestion_Details",
+				"description": "This activity is used to get the config details from table source_ingestion_config",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Check_If_Sftp_Server",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT * FROM ',pipeline().parameters.SchemaName, '.' ,pipeline().parameters.ConfigTableName,' WHERE Sourcetype=''',pipeline().parameters.Source,''' ORDER BY Sourcetype,PrimaryKey')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSynapseAnalytics_Table3",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.SchemaName",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.ConfigTableName",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Looping_Through_Each_Retailer_File_Record",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get_All_Source_Ingestion_Details",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get_All_Source_Ingestion_Details').output.value",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Set_Month",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "month",
+								"value": {
+									"value": "@concat('MM=',formatDateTime(utcNow(),'MM'))",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set_Year",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "year",
+								"value": {
+									"value": "@concat('YYYY=',formatDateTime(utcNow(),'yyyy'))",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set_Date",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "date",
+								"value": {
+									"value": "@concat('DD=',formatDateTime(addDays(utcNow(),0),'dd'))",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Get_Metadata_Of_Raw",
+							"type": "GetMetadata",
+							"dependsOn": [
+								{
+									"activity": "Set_Month",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Set_Year",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Set_Date",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "DelimitedText_AzureBlob",
+									"type": "DatasetReference",
+									"parameters": {
+										"Container": {
+											"value": "@pipeline().globalParameters.SourceContainer",
+											"type": "Expression"
+										},
+										"Directory": {
+											"value": "@concat(item().RawFolderPath,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+											"type": "Expression"
+										},
+										"FileName": {
+											"value": "@item().RawFilePattern",
+											"type": "Expression"
+										},
+										"Column_Delimiter": {
+											"value": "@item().ColumnDelimeter",
+											"type": "Expression"
+										},
+										"FileHeader": true
+									}
+								},
+								"fieldList": [
+									"childItems"
+								],
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							}
+						},
+						{
+							"name": "If_Files_Available_In_Raw_Then_Process",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "Set_Config_Index",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@greater(length(activity('Get_Metadata_Of_Raw').output.childItems),0)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Tbg_Raw_To_Process_Child_Pl",
+										"type": "ExecutePipeline",
+										"dependsOn": [
+											{
+												"activity": "Get_Config_Detail_Foreach_Index",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"pipeline": {
+												"referenceName": "Tbg_Rsi_Ingestion_Raw_To_Process_Pl",
+												"type": "PipelineReference"
+											},
+											"waitOnCompletion": true,
+											"parameters": {
+												"RawDirectory": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].RawFolderPath",
+													"type": "Expression"
+												},
+												"ProcessedDirectory": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].ProcessedFolderPath",
+													"type": "Expression"
+												},
+												"ArchivedDirectory": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].ArchiveFolderPath",
+													"type": "Expression"
+												},
+												"ColumnDelimeter": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].ColumnDelimeter",
+													"type": "Expression"
+												},
+												"RawFilePatterns": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].RawFilePattern",
+													"type": "Expression"
+												},
+												"MasterPipelineId": {
+													"value": "@pipeline().RunId",
+													"type": "Expression"
+												},
+												"MasterPipelineName": {
+													"value": "@pipeline().Pipeline",
+													"type": "Expression"
+												},
+												"RawFileExtension": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].FileFormat",
+													"type": "Expression"
+												},
+												"Source": {
+													"value": "@pipeline().parameters.Source",
+													"type": "Expression"
+												}
+											}
+										}
+									},
+									{
+										"name": "Tbg_Process_To_Publish_Child_Pl",
+										"type": "ExecutePipeline",
+										"dependsOn": [
+											{
+												"activity": "Tbg_Raw_To_Process_Child_Pl",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"pipeline": {
+												"referenceName": "Tbg_Rsi_Ingestion_Process_To_Publish_Pl",
+												"type": "PipelineReference"
+											},
+											"waitOnCompletion": true,
+											"parameters": {
+												"ProcessedDirectory": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].ProcessedFolderPath",
+													"type": "Expression"
+												},
+												"SchemaName": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].SchemaName",
+													"type": "Expression"
+												},
+												"TableName": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].TableName",
+													"type": "Expression"
+												},
+												"ArchivedDirectory": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].ArchiveFolderPath",
+													"type": "Expression"
+												},
+												"MasterPipelineId": {
+													"value": "@pipeline().RunId",
+													"type": "Expression"
+												},
+												"MasterPipelineName": {
+													"value": "@pipeline().Pipeline",
+													"type": "Expression"
+												},
+												"LoadType": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].LoadType",
+													"type": "Expression"
+												},
+												"LoadFrequency": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].LoadFrequency",
+													"type": "Expression"
+												},
+												"PrimaryKey": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].PrimaryKey",
+													"type": "Expression"
+												},
+												"StgTableName": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].StageTable",
+													"type": "Expression"
+												},
+												"IncrementalStoredProc": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].StoredProcName",
+													"type": "Expression"
+												},
+												"RawFilePattern": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].RawFilePattern",
+													"type": "Expression"
+												},
+												"IsFileHeader": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].IsFileHeader",
+													"type": "Expression"
+												},
+												"ColumnMapping": {
+													"value": "@activity('Get_Config_Detail_Foreach_Index').output.value[0].ColumnMapping",
+													"type": "Expression"
+												},
+												"Source": {
+													"value": "@pipeline().parameters.Source",
+													"type": "Expression"
+												}
+											}
+										}
+									},
+									{
+										"name": "Get_Config_Detail_Foreach_Index",
+										"type": "Lookup",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "SqlDWSource",
+												"sqlReaderQuery": {
+													"value": "@concat('SELECT * FROM ', pipeline().parameters.SchemaName,'.',pipeline().parameters.ConfigTableName, ' WHERE Id = CAST(', variables('configIndex'), ' AS INT)') \n",
+													"type": "Expression"
+												},
+												"queryTimeout": "02:00:00",
+												"partitionOption": "None"
+											},
+											"dataset": {
+												"referenceName": "AzureSynapseAnalytics_Table3",
+												"type": "DatasetReference",
+												"parameters": {
+													"SchemaName": {
+														"value": "@pipeline().parameters.SchemaName",
+														"type": "Expression"
+													},
+													"TableName": {
+														"value": "@pipeline().parameters.ConfigTableName",
+														"type": "Expression"
+													}
+												}
+											},
+											"firstRowOnly": false
+										}
+									}
+								]
+							}
+						},
+						{
+							"name": "Set_Config_Index",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Get_Metadata_Of_Raw",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "configIndex",
+								"value": {
+									"value": "@string(item().Id)",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "End_Date",
+							"description": "Load end date for each retailer",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "If_Files_Available_In_Raw_Then_Process",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "end_date",
+								"value": {
+									"value": "@formatDateTime(utcNow(),'yyyy-MM-dd HH:mm:ss.mmm')",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Sp_Upd_Start_And_End_Date_For_Each_Retailer_File",
+							"description": "updating load start and end dates for each retailer",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "End_Date",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[sp_upd_start_end_date]",
+								"storedProcedureParameters": {
+									"sourcetype": {
+										"value": {
+											"value": "@item().SourceType",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"start_date": {
+										"value": {
+											"value": "@variables('start_date')",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"end_date": {
+										"value": {
+											"value": "@variables('end_date')",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"id": {
+										"value": {
+											"value": "@item().id",
+											"type": "Expression"
+										},
+										"type": "Int16"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Sp_Upd_Run_Status_As_Complete_For_Each_Retailer_File",
+							"description": "Updating run status as 'Completed'",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Sp_Upd_Start_And_End_Date_For_Each_Retailer_File",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[sp_upd_run_status]",
+								"storedProcedureParameters": {
+									"sourcetype": {
+										"value": {
+											"value": "@item().SourceType",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"id": {
+										"value": {
+											"value": "@item().id",
+											"type": "Expression"
+										},
+										"type": "Int16"
+									},
+									"run_status": {
+										"value": {
+											"value": "Completed",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Sp_Upd_Run_Status_As_Failed_For_Each_Retailer_File",
+							"description": "Updating run status as 'Failed'",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Sp_Upd_Run_Status_As_Complete_For_Each_Retailer_File",
+									"dependencyConditions": [
+										"Skipped"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[sp_upd_run_status]",
+								"storedProcedureParameters": {
+									"sourcetype": {
+										"value": {
+											"value": "@item().SourceType",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"id": {
+										"value": {
+											"value": "@item().id",
+											"type": "Expression"
+										},
+										"type": "Int16"
+									},
+									"run_status": {
+										"value": {
+											"value": "Failed",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Sp_Create_Auditlog_Overall_Pipeline_Failure",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Web_Success_Email",
+						"dependencyConditions": [
+							"Skipped"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[sp_create_ingestion_auditlog]",
+					"storedProcedureParameters": {
+						"IngestionEndTime": {
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"IngestionStartTime": {
+							"value": {
+								"value": "@pipeline().TriggerTime",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"PipelineRunId": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceName": {
+							"value": {
+								"value": "@pipeline().parameters.Source",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceRowCount": {
+							"value": {
+								"value": "0",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"SourceType": {
+							"value": {
+								"value": "Entire Pipeline Failure",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"Status": {
+							"value": {
+								"value": "Failed",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetName": {
+							"value": null,
+							"type": "String"
+						},
+						"TargetRowCount": {
+							"value": {
+								"value": "0",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TargetType": {
+							"value": null,
+							"type": "String"
+						},
+						"MasterPipelineId": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"MasterPipelineName": {
+							"value": {
+								"value": "@pipeline().Pipeline",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"PipelineName": {
+							"value": {
+								"value": "@pipeline().Pipeline",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"StatusMessage": {
+							"value": {
+								"value": "The entire pipeline failed.",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"ErrorCode": {
+							"value": {
+								"value": "500",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSynapseAnalytics",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Web_Success_Email",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Looping_Through_Each_Retailer_File_Record",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json"
+					},
+					"url": {
+						"value": "@pipeline().globalParameters.LogicApp_generic_pl_success_email",
+						"type": "Expression"
+					},
+					"body": {
+						"value": "{\n    \"Environment\":\"@{pipeline().globalParameters.Environment}\",\n    \"SourceType\":\"@{pipeline().parameters.Source}\"\n}\n",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Check_If_Sftp_Server",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Update_Run_Status_And_Start_Date_For_Retailer",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(activity('Get_Source_Sftp_Server_Flag_Details').output.firstRow['IS_SFTP_SERVER'], 'Y')",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Tbg_Rsi_Landingzone_To_Raw",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Tbg_Rsi_Landing_To_Raw_Pl",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"SourceFileDirectory": {
+										"value": "@activity('Get_Sftp_And_Raw_Details').output.value[0].RawFileLandingPath",
+										"type": "Expression"
+									},
+									"DestinationFileDirectory": {
+										"value": "@activity('Get_Sftp_And_Raw_Details').output.value[0].RawFolderPath",
+										"type": "Expression"
+									},
+									"RawFilePatterns": {
+										"value": "@activity('Get_Sftp_And_Raw_Details').output.value[0].FileFormat",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Tbg_Rsi_Sftp_To_Raw",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Tbg_Rsi_Ingestion_Sftp_To_Raw_Pl",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"FileName": {
+										"value": "@concat('*',pipeline().parameters.Source,'*',pipeline().parameters.LoadFrequency,'*')",
+										"type": "Expression"
+									},
+									"BlobDirectoryName": {
+										"value": "@activity('Get_Sftp_And_Raw_Details').output.value[0].RawFolderPath",
+										"type": "Expression"
+									},
+									"SFTPServerPath": {
+										"value": "@activity('Get_Sftp_And_Raw_Details').output.value[0].SFTP_FOLDER",
+										"type": "Expression"
+									},
+									"SourceName": {
+										"value": "@activity('Get_Source_Sftp_Server_Flag_Details').output.firstRow.Sourcetype",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Fail_Pipeline",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "Sp_Create_Auditlog_Overall_Pipeline_Failure",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": {
+						"value": "Inner activity failed",
+						"type": "Expression"
+					},
+					"errorCode": "100"
+				}
+			},
+			{
+				"name": "Get_Source_Sftp_Server_Flag_Details",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Set_Start_Date",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT DISTINCT Sourcetype,IS_SFTP_SERVER FROM ',pipeline().parameters.SchemaName, '.' ,pipeline().parameters.ConfigTableName,' WHERE Sourcetype=''',pipeline().parameters.Source,'''')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSynapseAnalytics_Table3",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.SchemaName",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.ConfigTableName",
+								"type": "Expression"
+							}
+						}
+					}
+				}
+			},
+			{
+				"name": "Get_Sftp_And_Raw_Details",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Get_Source_Sftp_Server_Flag_Details",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT SFTP_FOLDER,Sourcetype,RawFileLandingPath,RawFolderPath,FileFormat, IS_SFTP_SERVER, RawFilePattern, Id FROM ',pipeline().parameters.SchemaName, '.' ,pipeline().parameters.ConfigTableName,' WHERE Sourcetype=''',pipeline().parameters.Source,''' GROUP BY Sourcetype,RawFileLandingPath,RawFolderPath,FileFormat,IS_SFTP_SERVER,SFTP_FOLDER, RawFilePattern, Id')\n",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSynapseAnalytics_Table3",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.SchemaName",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.ConfigTableName",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Set_Start_Date",
+				"description": "Load start date for each retailer",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "start_date",
+					"value": {
+						"value": "@formatDateTime(utcNow(),'yyyy-MM-dd HH:mm:ss.mmm')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Update_Run_Status_And_Start_Date_For_Retailer",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get_Sftp_And_Raw_Details",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get_Sftp_And_Raw_Details').output.value",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Sp_Upd_Run_Status_As_Start",
+							"description": "Updating run status as 'Running'",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[sp_upd_run_status]",
+								"storedProcedureParameters": {
+									"sourcetype": {
+										"value": {
+											"value": "@item().SourceType",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"id": {
+										"value": {
+											"value": "@item().id",
+											"type": "Expression"
+										},
+										"type": "Int16"
+									},
+									"run_status": {
+										"value": {
+											"value": "Running",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Sp_Upd_Start_Date",
+							"description": "updating load start date for each retailer and end date as null",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Sp_Upd_Run_Status_As_Start",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[sp_upd_start_end_date]",
+								"storedProcedureParameters": {
+									"sourcetype": {
+										"value": {
+											"value": "@item().SourceType",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"start_date": {
+										"value": {
+											"value": "@variables('start_date')",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"end_date": {
+										"value": {
+											"value": "@formatDateTime('9999-12-31','yyyy-MM-dd HH:mm:ss.mmm')",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"id": {
+										"value": {
+											"value": "@item().id",
+											"type": "Expression"
+										},
+										"type": "Int16"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Update_Run_Status_As_Failed_For_Retailer",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Check_If_Sftp_Server",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get_Sftp_And_Raw_Details').output.value",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Sp_Upd_Run_Status_As_Failed_For_Retailer",
+							"description": "Updating run status as 'Running'",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[sp_upd_run_status]",
+								"storedProcedureParameters": {
+									"sourcetype": {
+										"value": {
+											"value": "@item().SourceType",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"id": {
+										"value": {
+											"value": "@item().id",
+											"type": "Expression"
+										},
+										"type": "Int16"
+									},
+									"run_status": {
+										"value": {
+											"value": "Failed",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"SchemaName": {
+				"type": "string"
+			},
+			"ConfigTableName": {
+				"type": "string"
+			},
+			"Source": {
+				"type": "string"
+			},
+			"LoadFrequency": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"month": {
+				"type": "String"
+			},
+			"year": {
+				"type": "String"
+			},
+			"date": {
+				"type": "String"
+			},
+			"configIndex": {
+				"type": "String"
+			},
+			"ErrMsg": {
+				"type": "String"
+			},
+			"start_date": {
+				"type": "String"
+			},
+			"end_date": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "RSI Retailer Ingestion/Retailer Incremental Loading"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:16Z"
+	}
+}

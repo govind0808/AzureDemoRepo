@@ -1,0 +1,1314 @@
+{
+	"name": "Tbg_Rsi_Ingestion_Process_To_Publish_Pl",
+	"properties": {
+		"description": "This pipeline is used to copy the files from processed to publish",
+		"activities": [
+			{
+				"name": "Sp_Create_Publishedlayer_Success_Ingestion_Auditlog",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Check_Table_Loadtype",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[sp_create_ingestion_auditlog]",
+					"storedProcedureParameters": {
+						"IngestionEndTime": {
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"IngestionStartTime": {
+							"value": {
+								"value": "@pipeline().TriggerTime",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"PipelineRunId": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceName": {
+							"value": {
+								"value": "@pipeline().parameters.ProcessedDirectory",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceRowCount": {
+							"value": {
+								"value": "@int(variables('SourceRowCount'))",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"SourceType": {
+							"value": {
+								"value": "Processed Layer",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"Status": {
+							"value": {
+								"value": "Completed",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetName": {
+							"value": {
+								"value": "@concat(pipeline().parameters.SchemaName,'.',pipeline().parameters.TableName)",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetRowCount": {
+							"value": {
+								"value": "@int(variables('TargetRowCount'))",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TargetType": {
+							"value": {
+								"value": "Published Layer",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"MasterPipelineId": {
+							"value": {
+								"value": "@pipeline().parameters.MasterPipelineId",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"MasterPipelineName": {
+							"value": {
+								"value": "@pipeline().parameters.MasterPipelineName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"PipelineName": {
+							"value": {
+								"value": "@pipeline().Pipeline",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"StatusMessage": {
+							"value": " ",
+							"type": "String"
+						},
+						"ErrorCode": {
+							"value": "000",
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSynapseAnalytics",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Sp_Create_Publishedlayer_Failed_Ingestion_Auditlog",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Check_Table_Loadtype",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[sp_create_ingestion_auditlog]",
+					"storedProcedureParameters": {
+						"IngestionEndTime": {
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"IngestionStartTime": {
+							"value": {
+								"value": "@pipeline().TriggerTime",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"PipelineRunId": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceName": {
+							"value": {
+								"value": "@pipeline().parameters.ProcessedDirectory",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceRowCount": {
+							"value": {
+								"value": "0",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"SourceType": {
+							"value": {
+								"value": "Processed Layer",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"Status": {
+							"value": {
+								"value": "Failed",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetName": {
+							"value": {
+								"value": "@concat(pipeline().parameters.SchemaName,'.',pipeline().parameters.TableName)",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetRowCount": {
+							"value": {
+								"value": "0",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TargetType": {
+							"value": {
+								"value": "Published Layer",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"MasterPipelineId": {
+							"value": {
+								"value": "@pipeline().parameters.MasterPipelineId",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"MasterPipelineName": {
+							"value": {
+								"value": "@pipeline().parameters.MasterPipelineName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"PipelineName": {
+							"value": {
+								"value": "@pipeline().Pipeline",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"StatusMessage": {
+							"value": {
+								"value": "@variables('ErrorMessage')",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"ErrorCode": {
+							"value": {
+								"value": "@variables('ErrorCode')",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSynapseAnalytics",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Set_Month",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "month",
+					"value": {
+						"value": "@concat('MM=',formatDateTime(utcNow(),'MM'))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Year",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "year",
+					"value": {
+						"value": "@concat('YYYY=',formatDateTime(utcNow(),'yyyy'))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Date",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "date",
+					"value": {
+						"value": "@concat('DD=',formatDateTime(addDays(utcNow(),0),'dd'))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Check_Table_Loadtype",
+				"description": "This activity is used to check the load type if it is incremental or truncate",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Set_Month",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_Year",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_Date",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Switch_Case_Header_Check",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(pipeline().parameters.LoadType, 'Truncate')",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Copydata_Processed_To_Stg_Synpase",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "DelimitedTextSource",
+									"storeSettings": {
+										"type": "AzureBlobStorageReadSettings",
+										"recursive": true,
+										"modifiedDatetimeStart": {
+											"value": "@addDays(utcNow(),-1)",
+											"type": "Expression"
+										},
+										"modifiedDatetimeEnd": {
+											"value": "@addDays(utcNow(),1)",
+											"type": "Expression"
+										},
+										"wildcardFolderPath": {
+											"value": "@concat(pipeline().parameters.ProcessedDirectory,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+											"type": "Expression"
+										},
+										"wildcardFileName": {
+											"value": "@concat(pipeline().parameters.RawFilePattern,'*')",
+											"type": "Expression"
+										},
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "DelimitedTextReadSettings"
+									}
+								},
+								"sink": {
+									"type": "SqlDWSink",
+									"preCopyScript": {
+										"value": "@{concat('DELETE FROM ', pipeline().parameters.SchemaName,'.',pipeline().parameters.StgTableName)}",
+										"type": "Expression"
+									},
+									"allowPolyBase": true,
+									"polyBaseSettings": {
+										"rejectValue": 0,
+										"rejectType": "value",
+										"useTypeDefault": true
+									},
+									"disableMetricsCollection": false
+								},
+								"enableStaging": true,
+								"stagingSettings": {
+									"linkedServiceName": {
+										"referenceName": "AzureBlobStorage2",
+										"type": "LinkedServiceReference"
+									},
+									"path": {
+										"value": "@concat(pipeline().globalParameters.SourceContainer,'/Tropicana/Log')",
+										"type": "Expression"
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "DelimitedText_AzureBlob",
+									"type": "DatasetReference",
+									"parameters": {
+										"Container": {
+											"value": "@pipeline().globalParameters.SourceContainer",
+											"type": "Expression"
+										},
+										"Directory": {
+											"value": "@concat(pipeline().parameters.ProcessedDirectory,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+											"type": "Expression"
+										},
+										"FileName": {
+											"value": "@concat(pipeline().parameters.RawFilePattern,'*')",
+											"type": "Expression"
+										},
+										"Column_Delimiter": {
+											"value": "|",
+											"type": "Expression"
+										},
+										"FileHeader": {
+											"value": "@variables('IsFileHeader')",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "AzureSynapseAnalytics_Table3",
+									"type": "DatasetReference",
+									"parameters": {
+										"SchemaName": {
+											"value": "@pipeline().parameters.SchemaName",
+											"type": "Expression"
+										},
+										"TableName": {
+											"value": "@pipeline().parameters.StgTableName",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "Set_Stgtable_Target_Rowcount",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Sp_Incremental_Load_From_Stage_To_Main",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "TargetRowCount",
+								"value": {
+									"value": "@string(activity('Copydata_Processed_To_Stg_Synpase').output.rowsCopied)",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set_Stgtable_Source_Rowcount",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Sp_Incremental_Load_From_Stage_To_Main",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "SourceRowCount",
+								"value": {
+									"value": "@string(activity('Copydata_Processed_To_Stg_Synpase').output.rowsRead)",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Add_Audit_Columns_In_Src_Tables",
+							"type": "Lookup",
+							"dependsOn": [
+								{
+									"activity": "Copydata_Processed_To_Stg_Synpase",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlDWSource",
+									"sqlReaderQuery": {
+										"value": "@concat('UPDATE [',pipeline().parameters.SchemaName,'].',pipeline().parameters.StgTableName,' SET DL_SOURCE =''',pipeline().parameters.ProcessedDirectory,''',DL_PK_HASH = ''',pipeline().parameters.PrimaryKey, ''',DL_CREATEDDATETIME = ''',formatDateTime(utcNow(),'yyyy-MM-dd HH:mm:ss'),''',DL_CREATEDBY = ''','sqladmin', ''',DL_UPDATEDATETIME = ''',formatDateTime(utcNow(),'yyyy-MM-dd HH:mm:ss'),''',DL_UPDATEDBY = ''','sqladmin',''',DL_ACTIVEFLAG = ''','Y','''',';SELECT 1;' )",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "AzureSynapseAnalytics_Table3",
+									"type": "DatasetReference",
+									"parameters": {
+										"SchemaName": {
+											"value": "@pipeline().parameters.SchemaName",
+											"type": "Expression"
+										},
+										"TableName": {
+											"value": "@pipeline().parameters.StgTableName",
+											"type": "Expression"
+										}
+									}
+								}
+							}
+						},
+						{
+							"name": "Set_Error_Stg_Msg",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Copydata_Processed_To_Stg_Synpase",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "ErrorMessage",
+								"value": {
+									"value": "@activity('Copydata_Processed_To_Stg_Synpase').output.errors[0].Message",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set_Error_Stg_Code",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Copydata_Processed_To_Stg_Synpase",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "ErrorCode",
+								"value": {
+									"value": "@activity('Copydata_Processed_To_Stg_Synpase').StatusCode",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Process_Folder_Cleanup",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "Set_Stgtable_Target_Rowcount",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "process_folder_cleanup",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"ProcessedDirectory": {
+										"value": "@concat(pipeline().parameters.ProcessedDirectory,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Sp_Incremental_Load_From_Stage_To_Main",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Add_Audit_Columns_In_Src_Tables",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": {
+									"value": "@pipeline().parameters.IncrementalStoredProc",
+									"type": "Expression"
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Process_Folder_Cleanup_On_Failure",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "Set_Error_Message_Notification",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "process_folder_cleanup",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"ProcessedDirectory": {
+										"value": "@concat(pipeline().parameters.ProcessedDirectory,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Fail_Pipeline",
+							"type": "Fail",
+							"dependsOn": [
+								{
+									"activity": "Process_Folder_Cleanup_On_Failure",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"message": "Incremental StoredProcedure Failed",
+								"errorCode": "200"
+							}
+						},
+						{
+							"name": "Set_Error_Message_Notification",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Sp_Incremental_Load_From_Stage_To_Main",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "ErrorMessage_Notification",
+								"value": {
+									"value": "Publish to process failed while executing incremental load stored procedure",
+									"type": "Expression"
+								}
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Copydata_Processed_To_Synpase",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "DelimitedTextSource",
+									"storeSettings": {
+										"type": "AzureBlobStorageReadSettings",
+										"recursive": true,
+										"modifiedDatetimeStart": {
+											"value": "@addDays(utcNow(),-1)",
+											"type": "Expression"
+										},
+										"modifiedDatetimeEnd": {
+											"value": "@addDays(utcNow(),1)",
+											"type": "Expression"
+										},
+										"wildcardFolderPath": {
+											"value": "@concat(pipeline().parameters.ProcessedDirectory,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+											"type": "Expression"
+										},
+										"wildcardFileName": {
+											"value": "@concat(pipeline().parameters.RawFilePattern,'*')",
+											"type": "Expression"
+										},
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "DelimitedTextReadSettings"
+									}
+								},
+								"sink": {
+									"type": "SqlDWSink",
+									"preCopyScript": {
+										"value": "@{concat('DELETE FROM ', pipeline().parameters.SchemaName,'.',pipeline().parameters.TableName)\n}",
+										"type": "Expression"
+									},
+									"allowPolyBase": true,
+									"polyBaseSettings": {
+										"rejectValue": 0,
+										"rejectType": "value",
+										"useTypeDefault": false
+									},
+									"tableOption": "autoCreate",
+									"disableMetricsCollection": false
+								},
+								"enableStaging": true,
+								"stagingSettings": {
+									"linkedServiceName": {
+										"referenceName": "AzureBlobStorage2",
+										"type": "LinkedServiceReference"
+									},
+									"path": {
+										"value": "@concat(pipeline().globalParameters.SourceContainer,'/Tropicana/Log')",
+										"type": "Expression"
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "DelimitedText_AzureBlob",
+									"type": "DatasetReference",
+									"parameters": {
+										"Container": {
+											"value": "@pipeline().globalParameters.SourceContainer",
+											"type": "Expression"
+										},
+										"Directory": {
+											"value": "@concat(pipeline().parameters.ProcessedDirectory,'/',variables('year'),'/',variables('month'),'/',variables('date'))",
+											"type": "Expression"
+										},
+										"FileName": {
+											"value": "@concat(pipeline().parameters.RawFilePattern,'*')",
+											"type": "Expression"
+										},
+										"Column_Delimiter": {
+											"value": "|",
+											"type": "Expression"
+										},
+										"FileHeader": true
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "AzureSynapseAnalytics_Table3",
+									"type": "DatasetReference",
+									"parameters": {
+										"SchemaName": {
+											"value": "@pipeline().parameters.SchemaName",
+											"type": "Expression"
+										},
+										"TableName": {
+											"value": "@pipeline().parameters.TableName",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "Set_Target_Rowcount",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Copydata_Processed_To_Synpase",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "TargetRowCount",
+								"value": {
+									"value": "@string(activity('Copydata_Processed_To_Synpase').output.rowsCopied)",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set_Source_Rowcount",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Copydata_Processed_To_Synpase",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "SourceRowCount",
+								"value": {
+									"value": "@string(activity('Copydata_Processed_To_Synpase').output.rowsRead)",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set_Error_Msg",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Copydata_Processed_To_Synpase",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "ErrorMessage",
+								"value": {
+									"value": "@activity('Copydata_Processed_To_Synpase').output.errors[0].Message",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set_Error_Code",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Copydata_Processed_To_Synpase",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "ErrorCode",
+								"value": {
+									"value": "@activity('Copydata_Processed_To_Synpase').StatusCode",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Tbg_Rsi_Delete_Files_From_Archived",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Set_Sp_Duplicate_Count_Capture",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "delete_files_from_archived",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"SourceFolder": {
+							"value": "@pipeline().globalParameters.SourceContainer",
+							"type": "Expression"
+						},
+						"SourceDirectory": {
+							"value": "@pipeline().parameters.ArchivedDirectory",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "Switch_Case_Header_Check",
+				"type": "Switch",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"on": {
+						"value": "@pipeline().parameters.IsFileHeader",
+						"type": "Expression"
+					},
+					"cases": [
+						{
+							"value": "N",
+							"activities": [
+								{
+									"name": "Set_Header_False_Value",
+									"type": "SetVariable",
+									"dependsOn": [],
+									"policy": {
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "IsFileHeader",
+										"value": {
+											"value": "false",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					],
+					"defaultActivities": [
+						{
+							"name": "Set_Header_True_Value",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "IsFileHeader",
+								"value": {
+									"value": "true",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Sp_Duplicate_Count_Capture",
+				"description": "Captures the duplicate count from the table in the audit table ",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Sp_Create_Publishedlayer_Success_Ingestion_Auditlog",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": {
+						"value": "[dbo].[sp_duplicate_records_count]",
+						"type": "Expression"
+					},
+					"storedProcedureParameters": {
+						"MasterPipelineId": {
+							"value": {
+								"value": "@pipeline().parameters.MasterPipelineId",
+								"type": "Expression"
+							}
+						},
+						"PipelineRunId": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"StageTargetName": {
+							"value": {
+								"value": "@concat(pipeline().parameters.SchemaName,'.',pipeline().parameters.StgTableName)",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetName": {
+							"value": {
+								"value": "@concat(pipeline().parameters.SchemaName,'.',pipeline().parameters.TableName)",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSynapseAnalytics",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Set_Sp_Duplicate_Count_Capture",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Sp_Duplicate_Count_Capture",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "sp_duplicate_count_capture",
+					"value": {
+						"value": "@concat(pipeline().parameters.SchemaName,'.',pipeline().parameters.TableName)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Fail_Process_To_Publish",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "Failure_Email",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": "Inner Activity Failed",
+					"errorCode": "100"
+				}
+			},
+			{
+				"name": "Failure_Email",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Sp_Create_Publishedlayer_Failed_Ingestion_Auditlog",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json"
+					},
+					"url": {
+						"value": "@pipeline().globalParameters.LogicApp_generic_pl_failure_email",
+						"type": "Expression"
+					},
+					"body": {
+						"value": "{\n    \"Environment\":\"@{pipeline().globalParameters.Environment}\",\n\t\"DataFactoryName\":\"@{pipeline().Pipeline}\",\n\t\"ErrorMessage\":\"@{variables('ErrorMessage_Notification')}\",\n\t\"RunId\":\"@{pipeline().RunId}\",\n\t\"pipelineName\":\"@{pipeline().Pipeline}\",\n\t\"SourceType\":\"@{pipeline().parameters.Source}\",\n    \"FileName\":\"@{pipeline().parameters.RawFilePattern}\"\n}\n",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Web_Failure_Email",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Tbg_Rsi_Delete_Files_From_Archived",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json"
+					},
+					"url": {
+						"value": "@pipeline().globalParameters.LogicApp_generic_pl_failure_email",
+						"type": "Expression"
+					},
+					"body": {
+						"value": "{\n    \"Environment\":\"@{pipeline().globalParameters.Environment}\",\n\t\"DataFactoryName\":\"@{pipeline().Pipeline}\",\n\t\"ErrorMessage\":\"@{variables('ErrorMessage_Notification')}\",\n\t\"RunId\":\"@{pipeline().RunId}\",\n\t\"pipelineName\":\"@{pipeline().Pipeline}\",\n\t\"SourceType\":\"@{pipeline().parameters.Source}\",\n    \"FileName\":\"@{pipeline().parameters.RawFilePattern}\"\n}\n",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Fail_Process_To_Publish_Pipeline",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "Web_Failure_Email",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": "Inner Activity Failed",
+					"errorCode": "100"
+				}
+			}
+		],
+		"parameters": {
+			"ProcessedDirectory": {
+				"type": "string"
+			},
+			"SchemaName": {
+				"type": "string"
+			},
+			"TableName": {
+				"type": "string"
+			},
+			"ArchivedDirectory": {
+				"type": "string"
+			},
+			"MasterPipelineId": {
+				"type": "string"
+			},
+			"MasterPipelineName": {
+				"type": "string"
+			},
+			"LoadType": {
+				"type": "string"
+			},
+			"LoadFrequency": {
+				"type": "string"
+			},
+			"PrimaryKey": {
+				"type": "string"
+			},
+			"StgTableName": {
+				"type": "string"
+			},
+			"ColumnDelimeter": {
+				"type": "string"
+			},
+			"IncrementalStoredProc": {
+				"type": "string"
+			},
+			"RawFilePattern": {
+				"type": "string"
+			},
+			"IsFileHeader": {
+				"type": "string"
+			},
+			"ColumnMapping": {
+				"type": "string"
+			},
+			"Source": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"baseFileName": {
+				"type": "String"
+			},
+			"month": {
+				"type": "String"
+			},
+			"year": {
+				"type": "String"
+			},
+			"date": {
+				"type": "String"
+			},
+			"TargetRowCount": {
+				"type": "String"
+			},
+			"SourceRowCount": {
+				"type": "String"
+			},
+			"ErrorMessage": {
+				"type": "String"
+			},
+			"ErrorCode": {
+				"type": "String"
+			},
+			"IsFileHeader": {
+				"type": "String"
+			},
+			"sp_duplicate_count_capture": {
+				"type": "String"
+			},
+			"ErrorMessage_Notification": {
+				"type": "String",
+				"defaultValue": "Error pipeline failed"
+			}
+		},
+		"folder": {
+			"name": "RSI Retailer Ingestion/Retailer Incremental Loading"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:14Z"
+	}
+}

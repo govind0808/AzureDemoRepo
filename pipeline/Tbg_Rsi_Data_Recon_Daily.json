@@ -1,0 +1,204 @@
+{
+	"name": "Tbg_Rsi_Data_Recon_Daily",
+	"properties": {
+		"activities": [
+			{
+				"name": "Set_Full_File_Path",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Daily_Recon",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "FullFilePath",
+					"value": {
+						"value": "@concat(pipeline().globalParameters.SourceContainer,'/',activity('Daily_Recon').output.runOutput)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Send_Success_Email",
+				"description": "Send email to the respective app owner after the successful migration",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Set_File_Name",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_Subject",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json"
+					},
+					"url": {
+						"value": "@pipeline().globalParameters.LogicApp_generic_pl_file_attachment_email",
+						"type": "Expression"
+					},
+					"body": {
+						"value": "{\n    \"Environment\":'@{pipeline().globalParameters.Environment}',\n    \"FilePath\" : '@{variables('FullFilePath')}',\n\"FileName\" : '@{variables('FileName')}',\n\"Subject\":'@{variables('Subject')}'}",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_File_Name",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set_Full_File_Path",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "FileName",
+					"value": {
+						"value": "@last(array(split(variables('FullFilePath'), '/')))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Subject",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set_Full_File_Path",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Subject",
+					"value": {
+						"value": "RSI Daily Recon",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Daily_Recon",
+				"type": "DatabricksNotebook",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": "/Repos/Enterprise_Data/Dev/Databricks/Notebooks/Old_Framework/RSI/Recon/DataRecon_Daily",
+					"baseParameters": {
+						"Container": {
+							"value": "@pipeline().globalParameters.SourceContainer",
+							"type": "Expression"
+						},
+						"StorageAccount": {
+							"value": "@pipeline().globalParameters.Storage_Account",
+							"type": "Expression"
+						},
+						"ArchiveDir": {
+							"value": "@pipeline().parameters.ArchiveDir",
+							"type": "Expression"
+						},
+						"DataRecon": {
+							"value": "@pipeline().parameters.DataRecon",
+							"type": "Expression"
+						},
+						"SourceSystem": {
+							"value": "@pipeline().parameters.SourceSystem",
+							"type": "Expression"
+						},
+						"YearMonthDay": {
+							"value": "@concat('YYYY=',formatDateTime(utcNow(),'yyyy'),'/','MM=',formatDateTime(utcNow(),'MM'),'/','DD=',formatDateTime(addDays(utcNow(),0),'dd'))",
+							"type": "Expression"
+						},
+						"Frequency": {
+							"value": "@pipeline().parameters.Frequency",
+							"type": "Expression"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureDatabricks",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"ArchiveDir": {
+				"type": "string",
+				"defaultValue": "Tropicana/Retail/Inbound/Archived"
+			},
+			"DataRecon": {
+				"type": "string",
+				"defaultValue": "Tropicana/Retail/Inbound/DataRecon"
+			},
+			"SourceSystem": {
+				"type": "string",
+				"defaultValue": "RSI"
+			},
+			"Frequency": {
+				"type": "string",
+				"defaultValue": "Daily"
+			}
+		},
+		"variables": {
+			"FullFilePath": {
+				"type": "String"
+			},
+			"FileName": {
+				"type": "String"
+			},
+			"Subject": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "RSI Retailer Ingestion/Retailer Incremental Loading"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:03Z"
+	}
+}

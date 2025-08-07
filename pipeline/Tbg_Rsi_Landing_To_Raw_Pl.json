@@ -1,0 +1,279 @@
+{
+	"name": "Tbg_Rsi_Landing_To_Raw_Pl",
+	"properties": {
+		"description": "Scan the file path on your source storage store and get the container list.",
+		"activities": [
+			{
+				"name": "Get_Metadata_Of_Landing",
+				"type": "GetMetadata",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "BinarySourceFileStore1",
+						"type": "DatasetReference",
+						"parameters": {
+							"container": {
+								"value": "@pipeline().globalParameters.SourceContainer",
+								"type": "Expression"
+							},
+							"directory": {
+								"value": "@pipeline().parameters.SourceFileDirectory",
+								"type": "Expression"
+							},
+							"FileName": {
+								"value": "@pipeline().parameters.RawFilePatterns",
+								"type": "Expression"
+							}
+						}
+					},
+					"fieldList": [
+						"childItems",
+						"itemType"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true
+					},
+					"formatSettings": {
+						"type": "BinaryReadSettings"
+					}
+				}
+			},
+			{
+				"name": "Set_Enumerate_Containers_List Length",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Get_Metadata_Of_Landing",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "EnumerateContainersList_Length",
+					"value": {
+						"value": "@string(length(activity('Get_Metadata_Of_Landing').output.childItems))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Filtering_File",
+				"type": "Filter",
+				"dependsOn": [
+					{
+						"activity": "Set_Enumerate_Containers_List Length",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get_Metadata_Of_Landing').output.childItems",
+						"type": "Expression"
+					},
+					"condition": {
+						"value": "@equals(item().type,'File')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Looping_Through_Each_Source_File",
+				"description": "Get the container list from Metadata activity and then iterates each of them to Copy activity.",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Filtering_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Filtering_File').output.Value",
+						"type": "Expression"
+					},
+					"batchCount": 4,
+					"activities": [
+						{
+							"name": "Copy_Landing_To_Raw",
+							"description": "Copy each container from source storage store to destination store.",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "BinarySource",
+									"storeSettings": {
+										"type": "AzureBlobStorageReadSettings",
+										"recursive": true,
+										"deleteFilesAfterCompletion": false
+									},
+									"formatSettings": {
+										"type": "BinaryReadSettings"
+									}
+								},
+								"sink": {
+									"type": "BinarySink",
+									"storeSettings": {
+										"type": "AzureBlobStorageWriteSettings",
+										"copyBehavior": "PreserveHierarchy"
+									}
+								},
+								"enableStaging": false
+							},
+							"inputs": [
+								{
+									"referenceName": "BinarySourceFileStore1",
+									"type": "DatasetReference",
+									"parameters": {
+										"container": {
+											"value": "@pipeline().globalParameters.SourceContainer",
+											"type": "Expression"
+										},
+										"directory": {
+											"value": "@pipeline().parameters.SourceFileDirectory",
+											"type": "Expression"
+										},
+										"FileName": {
+											"value": "@item().name",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "BinarySinkFileStore",
+									"type": "DatasetReference",
+									"parameters": {
+										"container": {
+											"value": "@pipeline().globalParameters.SourceContainer",
+											"type": "Expression"
+										},
+										"directory": {
+											"value": "@concat(pipeline().parameters.DestinationFileDirectory,'/YYYY=',formatDateTime(utcnow(),'yyyy'),'/MM=',formatDateTime(utcNow(),'MM'),'/DD=',formatDateTime(utcNow(),'dd'))",
+											"type": "Expression"
+										},
+										"FileName": {
+											"value": "@item().name",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "Delete_From_Landing",
+							"type": "Delete",
+							"dependsOn": [
+								{
+									"activity": "Copy_Landing_To_Raw",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "BinarySourceFileStore1",
+									"type": "DatasetReference",
+									"parameters": {
+										"container": {
+											"value": "@pipeline().globalParameters.SourceContainer",
+											"type": "Expression"
+										},
+										"directory": {
+											"value": "@pipeline().parameters.SourceFileDirectory",
+											"type": "Expression"
+										},
+										"FileName": {
+											"value": "@item().name",
+											"type": "Expression"
+										}
+									}
+								},
+								"enableLogging": false,
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"SourceFileDirectory": {
+				"type": "string",
+				"defaultValue": "Tropicana/Retail/Inbound/Raw/RSI"
+			},
+			"DestinationFileDirectory": {
+				"type": "string",
+				"defaultValue": "Tropicana/Retail/Inbound/Raw/RSI"
+			},
+			"RawFilePatterns": {
+				"type": "string",
+				"defaultValue": "*.csv.gz"
+			}
+		},
+		"variables": {
+			"test": {
+				"type": "String"
+			},
+			"test2": {
+				"type": "String"
+			},
+			"test3": {
+				"type": "String"
+			},
+			"FilesList": {
+				"type": "Array"
+			},
+			"IncomingFIleName": {
+				"type": "String"
+			},
+			"EnumerateContainersList_Length": {
+				"type": "String"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:11Z"
+	}
+}

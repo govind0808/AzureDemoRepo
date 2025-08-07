@@ -1,0 +1,362 @@
+{
+	"name": "Tbg_Rsi_Missing_Dates_Report_Daily",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy_Missing_Dates_To_File",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": "With a as (Select DATEADD(DAY, -15, Max_Pos_dt) Min_Pos_dt,Max_Pos_dt from (\nselect max(cal_dt) Max_Pos_dt\nfrom tbg_retail_published.tbg_Calendar_Dim\nwhere (cal_dt < getdate() - 4) ) a),\nb as (Select Retailer_Name,Cal_dt,min_pos_dt,Max_Pos_dt from a\ninner join tbg_retail_published.tbg_Calendar_Dim on Cal_dt between min_pos_dt and Max_Pos_dt\ninner join tbg_retail_published.tbg_Sales_txn_fact on pos_Dt between min_pos_dt and Max_Pos_dt\ngroup by Retailer_Name,Cal_dt,min_pos_dt,Max_Pos_dt),\nc as (select Retailer_Name,Pos_Dt from tbg_retail_published.tbg_Sales_txn_fact group by Retailer_Name,Pos_Dt)\nSelect Retailer_Name,CAST (POS_DT as Varchar) POS_DT from (Select b.Retailer_Name,Cal_Dt POS_DT from b\nExcept\nselect Retailer_Name,Pos_Dt from c) x\norder by 1,2",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "DelimitedTextSink",
+						"storeSettings": {
+							"type": "AzureBlobStorageWriteSettings"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextWriteSettings",
+							"quoteAllText": true,
+							"fileExtension": ".txt"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "AzureSynapseAnalytics_Table3",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.SchemaName",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "tbg_rsi_missing_dates_file",
+						"type": "DatasetReference",
+						"parameters": {
+							"ContainerName": {
+								"value": "@pipeline().globalParameters.SourceContainer",
+								"type": "Expression"
+							},
+							"FolderPath": {
+								"value": "@pipeline().parameters.FolderName",
+								"type": "Expression"
+							},
+							"FileName": {
+								"value": "@concat(pipeline().parameters.FileName,'_',formatDatetime(utcnow(),'dd-MM-yyy'),'.csv')",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "Set FilePath",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Copy_Missing_Dates_To_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "FullFilePath",
+					"value": {
+						"value": "@concat(pipeline().globalParameters.SourceContainer,'/',pipeline().parameters.FolderName,'/',pipeline().parameters.FileName,'_',formatDatetime(utcnow(),'dd-MM-yyy'),'.csv')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Fil_Name",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Copy_Missing_Dates_To_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "FileName",
+					"value": {
+						"value": "@concat(pipeline().parameters.FileName,'_',formatDatetime(utcnow(),'dd-MM-yyy'),'.csv')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Subject",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Copy_Missing_Dates_To_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Subject",
+					"value": {
+						"value": "RSI Missing Dates",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Target_Rowcount",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Copy_Missing_Dates_To_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "TargetRowCount",
+					"value": {
+						"value": "@string(activity('Copy_Missing_Dates_To_File').output.rowsCopied)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "If_Rowcount_Greater_Than_Zero",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Set_Target_Rowcount",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set FilePath",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_Fil_Name",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_Subject",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_Subject_Line",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(int(variables('TargetRowCount')),0)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Send_Email_Nodata",
+							"description": "Send email to the respective app owner after the successful migration",
+							"type": "WebActivity",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "POST",
+								"headers": {
+									"Content-Type": "application/json"
+								},
+								"url": {
+									"value": "https://eus1logicapp-entdata-dev.azurewebsites.net:443/api/Missing-Dates-email/triggers/manual/invoke?api-version=2022-05-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=W8apUpZEzjTrdD0m6UpzaR83N32nn7azIcg3zTuzgbo",
+									"type": "Expression"
+								},
+								"body": {
+									"value": "{\"Environment\":'@{pipeline().globalParameters.Environment}',\n\"Subject\" : '@{variables('Subject')}',\n\"Subject Line\" : '@{variables('Subject Line')}'}",
+									"type": "Expression"
+								}
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Send_Missing_Date_Mail",
+							"description": "Send email to the respective app owner after the successful migration",
+							"type": "WebActivity",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "POST",
+								"headers": {
+									"Content-Type": "application/json"
+								},
+								"url": {
+									"value": "https://eus1logicapp-entdata-dev.azurewebsites.net:443/api/generic_pl_file_attachment_email/triggers/manual/invoke?api-version=2022-05-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=-XVrKCiz6qertRLN1FIxk48TGIaVzuqxSzYPgIG5ofA",
+									"type": "Expression"
+								},
+								"body": {
+									"value": "{\"Environment\":'@{pipeline().globalParameters.Environment}',\n\"FilePath\" : '@{variables('FullFilePath')}',\n\"FileName\" : '@{variables('FileName')}',\n\"Subject\":'@{variables('Subject')}'}",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Set_Subject_Line",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Copy_Missing_Dates_To_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Subject Line",
+					"value": {
+						"value": "RSI Missing Dates  Pipeline is successfully executed. There are no missing dates for the past one month for all Retailers",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"TableName": {
+				"type": "string",
+				"defaultValue": "tbg_Sales_txn_fact"
+			},
+			"SchemaName": {
+				"type": "string",
+				"defaultValue": "tbg_retail_published"
+			},
+			"FolderName": {
+				"type": "string",
+				"defaultValue": "Tropicana/Retail/Inbound/DataRecon/RSI/Report/MissingDates"
+			},
+			"FileName": {
+				"type": "string",
+				"defaultValue": "RSI_Missing_Dates"
+			},
+			"Lkp_TableName": {
+				"type": "string",
+				"defaultValue": "TBG_RSI_Missing_Dates_Lookup"
+			},
+			"Lkp_FileName": {
+				"type": "string",
+				"defaultValue": "RSI_Missing_Dates_Lookup.csv"
+			},
+			"Lkp_FolderPath": {
+				"type": "string",
+				"defaultValue": "Tropicana/Retail/Inbound/MissingDates"
+			}
+		},
+		"variables": {
+			"FullFilePath": {
+				"type": "String"
+			},
+			"FileName": {
+				"type": "String"
+			},
+			"Subject": {
+				"type": "String"
+			},
+			"TargetRowCount": {
+				"type": "String"
+			},
+			"Subject Line": {
+				"type": "String"
+			},
+			"Subject_NoData": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "RSI Retailer Ingestion/Retailer Incremental Loading"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:10Z"
+	}
+}

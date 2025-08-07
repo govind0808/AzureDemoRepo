@@ -1,0 +1,33 @@
+{
+	"name": "Binary_RSI_SFTP",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "Sftp1",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"FileName": {
+				"type": "string"
+			},
+			"SFTPServerPath": {
+				"type": "string",
+				"defaultValue": "/download/History"
+			}
+		},
+		"annotations": [],
+		"type": "Binary",
+		"typeProperties": {
+			"location": {
+				"type": "SftpLocation",
+				"fileName": {
+					"value": "@dataset().FileName",
+					"type": "Expression"
+				},
+				"folderPath": {
+					"value": "@dataset().SFTPServerPath",
+					"type": "Expression"
+				}
+			}
+		}
+	}
+}

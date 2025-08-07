@@ -1,0 +1,311 @@
+{
+	"name": "Tbg_Rsi_Generic_Wrapper",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get_All_Retailer_Details",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Check_If_Full_Or_Adhoc_Run",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT DISTINCT SourceType, LoadFrequency FROM ',pipeline().parameters.Config_Schema_Name,'.',pipeline().parameters.Config_Table_Name,'  ',variables('Retailer_Details_Query'))",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSynapseAnalytics_Table3",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.Config_Schema_Name",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.Config_Table_Name",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Looping_Through_Each_Rsi_Retailer",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get_All_Retailer_Details",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get_All_Retailer_Details').output.value",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Tbg_Data_Rsi_Generic_Ingestion_Master_Pl",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Tbg_Rsi_Generic_Ingestion_Master_Pl",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"SchemaName": {
+										"value": "@pipeline().parameters.Config_Schema_Name",
+										"type": "Expression"
+									},
+									"ConfigTableName": {
+										"value": "@pipeline().parameters.Config_Table_Name",
+										"type": "Expression"
+									},
+									"Source": {
+										"value": "@item().SourceType",
+										"type": "Expression"
+									},
+									"LoadFrequency": {
+										"value": "@item().LoadFrequency",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Sp_Rsi_Upd_Load_Frequency",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Tbg_Data_Rsi_Generic_Ingestion_Master_Pl",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": {
+									"value": "[dbo].[sp_rsi_upd_LoadFrequency]",
+									"type": "Expression"
+								},
+								"storedProcedureParameters": {
+									"sourcetype": {
+										"value": {
+											"value": "@item().SourceType",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Tbg_Rsi_Data_Recon_Daily",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Looping_Through_Each_Rsi_Retailer",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Tbg_Rsi_Data_Recon_Daily",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "Tbg_Rsi_Missing_Dates_Report_Daily",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Looping_Through_Each_Rsi_Retailer",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Tbg_Rsi_Missing_Dates_Report_Daily",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "Get_Adhoc_Flag_Details_Count",
+				"description": "Get details to check if adhoc flag set for any retailer",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT count(*) as record_count\n FROM ',pipeline().parameters.Config_Schema_Name,'.',pipeline().parameters.Config_Table_Name,' WHERE SourceType LIKE ''%RSI%'' AND adhoc_flag = ''Y'';')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSynapseAnalytics_Table3",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.Config_Schema_Name",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.Config_Table_Name",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Check_If_Full_Or_Adhoc_Run",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Get_Adhoc_Flag_Details_Count",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(int(activity('Get_Adhoc_Flag_Details_Count').output.value[0].record_count),0)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Setting_Fullrun_Query",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Retailer_Details_Query",
+								"value": {
+									"value": "WHERE SourceType LIKE '%RSI%' AND Master_Run_Flag = 'Y';",
+									"type": "Expression"
+								}
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "setting_Adhoc_Query",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Retailer_Details_Query",
+								"value": {
+									"value": "WHERE SourceType LIKE '%RSI%' AND adhoc_flag = 'Y';",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"Config_Schema_Name": {
+				"type": "string",
+				"defaultValue": "Tbg_Config"
+			},
+			"Config_Table_Name": {
+				"type": "string",
+				"defaultValue": "Tbg_Source_Ingestion_Config"
+			}
+		},
+		"variables": {
+			"Retailer_Details_Query": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "RSI Retailer Ingestion/Retailer Incremental Loading"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:17Z"
+	}
+}
