@@ -1,0 +1,311 @@
+{
+	"name": "Tbg_Pbna_Generic_Wrapper_Incremental_Pl",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get_Pbna_Sourcetype_Details",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Check_If_Full_Or_Adhoc_Run",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('select distinct SourceType, LoadFrequency from  ', pipeline().parameters.Config_Schema_Name,'.',pipeline().parameters.Config_Table_Name,'  ',variables('Pbna_Sourcetype_Query'))",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSynapseAnalytics_Table2",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.Config_Schema_Name",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.Config_Table_Name",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Get_Adhoc_Flag_Details_Count",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('select count(*) as record_count from  ', pipeline().parameters.Config_Schema_Name,'.',pipeline().parameters.Config_Table_Name, '  where sourcetype like ''%PBNA%'' and LoadType = ''Incremental'' and adhoc_flag = ''Y'';')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSynapseAnalytics_Table2",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.Config_Schema_Name",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.Config_Table_Name",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Check_If_Full_Or_Adhoc_Run",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Get_Adhoc_Flag_Details_Count",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(int(activity('Get_Adhoc_Flag_Details_Count').output.value[0].record_count),0)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Set_Full_Run_Query",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Pbna_Sourcetype_Query",
+								"value": {
+									"value": "WHERE sourcetype like '%PBNA%' and LoadType = 'Incremental' AND Master_run_flag = 'Y';",
+									"type": "Expression"
+								}
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Set_Adhoc_Run_Query",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Pbna_Sourcetype_Query",
+								"value": {
+									"value": "WHERE sourcetype like '%PBNA%' and LoadType = 'Incremental' AND adhoc_flag = 'Y';",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Looping_Through_Each_Pbna_Source",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get_Pbna_Sourcetype_Details",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get_Pbna_Sourcetype_Details').output.value",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Tbg_Pbna_Generic_Ingestion_Master_Pl",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Tbg_Pbna_Generic_Ingestion_Master_Incremental_Pl",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Config_Schema_Name": {
+										"value": "@pipeline().parameters.Config_Schema_Name",
+										"type": "Expression"
+									},
+									"Config_Table_Name": {
+										"value": "@pipeline().parameters.Config_Table_Name",
+										"type": "Expression"
+									},
+									"Sourcetype": {
+										"value": "@item().SourceType",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Name": {
+										"value": "@pipeline().Pipeline",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Id": {
+										"value": "@pipeline().RunId",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Sp_Pbna_Upd_Load_Frequency",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Tbg_Pbna_Generic_Ingestion_Master_Pl",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[sp_pbna_upd_LoadFrequency]",
+								"storedProcedureParameters": {
+									"source": {
+										"value": {
+											"value": "@item().SourceType",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics_PROD",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Tbg_Pbna_Daily_Recon",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Looping_Through_Each_Pbna_Source",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Tbg_Pbna_Data_Recon_Daily",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "Tbg_Pbna_Missing_Dates_Report_Daily",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Looping_Through_Each_Pbna_Source",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Tbg_Pbna_Missing_Dates_Report_Daily",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			}
+		],
+		"parameters": {
+			"Config_Schema_Name": {
+				"type": "string",
+				"defaultValue": "Tbg_Config"
+			},
+			"Config_Table_Name": {
+				"type": "string",
+				"defaultValue": "Tbg_Source_Ingestion_Config"
+			}
+		},
+		"variables": {
+			"Pbna_Sourcetype_Query": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "PBNA"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:18Z"
+	}
+}

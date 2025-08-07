@@ -1,0 +1,995 @@
+{
+	"name": "Tbg_Pbna_Ingestion_Stg_To_Publish_Incremental_Pl",
+	"properties": {
+		"description": "This pipeline is to load data from Stage to final table ",
+		"activities": [
+			{
+				"name": "Get_Config_Details_For_Publish",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT * FROM ',pipeline().parameters.Config_Schema_Name, '.' ,pipeline().parameters.Config_Table_Name,' WHERE Sourcetype=''',pipeline().parameters.Sourcetype,'''',' and loadtype =''Incremental'' and  RawFilePattern like ''',pipeline().parameters.Source_File_Pattern,'''')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSynapseAnalytics_Table2",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.Config_Schema_Name",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.Config_Table_Name",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Check_If_Fact_Or_Dim",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Get_Config_Details_For_Publish",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@contains(pipeline().parameters.Source_File_Pattern,'Sales')",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Sp_Incremental_Load_From_Stage_To_Main_Dim",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Set_Source_Row_Count_Dim",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": {
+									"value": "@activity('Get_Config_Details_For_Publish').output.value[0].StoredProcName",
+									"type": "Expression"
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics_PROD",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Sp_Create_Publishedlayer_Success_Ingestion_Auditlog_Dim",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Set_Target_Row_Count_Dim",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[sp_create_ingestion_auditlog]",
+								"storedProcedureParameters": {
+									"IngestionEndTime": {
+										"value": {
+											"value": "@utcNow()",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"IngestionStartTime": {
+										"value": {
+											"value": "@pipeline().TriggerTime",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"PipelineRunId": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"SourceName": {
+										"value": {
+											"value": "@concat(activity('Get_Config_Details_For_Publish').output.value[0].SchemaName,'.',activity('Get_Config_Details_For_Publish').output.value[0].StageTable)",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"SourceRowCount": {
+										"value": {
+											"value": "@int(variables('Source_Row_Count'))",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"SourceType": {
+										"value": {
+											"value": "Stage Layer",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"Status": {
+										"value": {
+											"value": "Completed",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"TargetName": {
+										"value": {
+											"value": "@concat(activity('Get_Config_Details_For_Publish').output.value[0].SchemaName,'.',activity('Get_Config_Details_For_Publish').output.value[0].TableName)",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"TargetRowCount": {
+										"value": {
+											"value": "@int(variables('Target_Row_Count'))",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"TargetType": {
+										"value": {
+											"value": "Published Layer",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"MasterPipelineId": {
+										"value": {
+											"value": "@pipeline().parameters.Master_Pipeline_Id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"MasterPipelineName": {
+										"value": {
+											"value": "@pipeline().parameters.Master_Pipeline_Name",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"PipelineName": {
+										"value": {
+											"value": "@pipeline().Pipeline",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"StatusMessage": {
+										"value": null,
+										"type": "String"
+									},
+									"ErrorCode": {
+										"value": null,
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics_PROD",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Get_Record_Count_Of_Dim",
+							"type": "Lookup",
+							"dependsOn": [
+								{
+									"activity": "Sp_Incremental_Load_From_Stage_To_Main_Dim",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlDWSource",
+									"sqlReaderQuery": {
+										"value": "@concat('Select count(*) as count from ', activity('Get_Config_Details_For_Publish').output.value[0].SchemaName, '.' ,activity('Get_Config_Details_For_Publish').output.value[0].TableName, ' a inner join ',activity('Get_Config_Details_For_Publish').output.value[0].SchemaName, '.' ,activity('Get_Config_Details_For_Publish').output.value[0].StageTable, ' b on a.', pipeline().parameters.Col, '= b.', pipeline().parameters.Col, ' and DL_ACTIVEFLAG=1')",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "AzureSynapseAnalytics_Table2",
+									"type": "DatasetReference",
+									"parameters": {
+										"SchemaName": {
+											"value": "@activity('Get_Config_Details_For_Publish').output.value[0].SchemaName",
+											"type": "Expression"
+										},
+										"TableName": {
+											"value": "@activity('Get_Config_Details_For_Publish').output.value[0].TableName",
+											"type": "Expression"
+										}
+									}
+								},
+								"firstRowOnly": true
+							}
+						},
+						{
+							"name": "Set_Target_Row_Count_Dim",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Get_Record_Count_Of_Dim",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Target_Row_Count",
+								"value": {
+									"value": "@string(activity('Get_Record_Count_Of_Dim').output.firstRow.count)",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Get_Record_Count_Of_Stage",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlDWSource",
+									"sqlReaderQuery": {
+										"value": "@concat('Select Count(*) as count from ',activity('Get_Config_Details_For_Publish').output.value[0].SchemaName, '.' ,activity('Get_Config_Details_For_Publish').output.value[0].StageTable)",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "AzureSynapseAnalytics_Table2",
+									"type": "DatasetReference",
+									"parameters": {
+										"SchemaName": {
+											"value": "@activity('Get_Config_Details_For_Publish').output.value[0].SchemaName",
+											"type": "Expression"
+										},
+										"TableName": {
+											"value": "@activity('Get_Config_Details_For_Publish').output.value[0].StageTable",
+											"type": "Expression"
+										}
+									}
+								}
+							}
+						},
+						{
+							"name": "Set_Source_Row_Count_Dim",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Get_Record_Count_Of_Stage",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Source_Row_Count",
+								"value": {
+									"value": "@string(activity('Get_Record_Count_Of_Stage').output.firstRow.count)",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Sp_Duplicate_Count_Capture_Dim",
+							"description": "Captures the duplicate count from the table in the audit table ",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Sp_Create_Publishedlayer_Success_Ingestion_Auditlog_Dim",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": {
+									"value": "[dbo].[sp_duplicate_records_count]",
+									"type": "Expression"
+								},
+								"storedProcedureParameters": {
+									"MasterPipelineId": {
+										"value": {
+											"value": "@pipeline().parameters.Master_Pipeline_Id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"PipelineRunId": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"StageTargetName": {
+										"value": {
+											"value": "@concat(activity('Get_Config_Details_For_Publish').output.value[0].SchemaName,'.',activity('Get_Config_Details_For_Publish').output.value[0].StageTable)",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"TargetName": {
+										"value": {
+											"value": "@concat(activity('Get_Config_Details_For_Publish').output.value[0].SchemaName,'.',activity('Get_Config_Details_For_Publish').output.value[0].TableName)",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics_PROD",
+								"type": "LinkedServiceReference"
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Sp_Incremental_Load_From_Stage_To_Main_Fact",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Set_Source_Row_Count_Fact",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": {
+									"value": "@activity('Get_Config_Details_For_Publish').output.value[0].StoredProcName",
+									"type": "Expression"
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics_PROD",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Sp_Create_Publishedlayer_Success_Ingestion_Auditlog_Fct",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Set_Target_Row_Count_Fact",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[sp_create_ingestion_auditlog]",
+								"storedProcedureParameters": {
+									"IngestionEndTime": {
+										"value": {
+											"value": "@utcNow()",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"IngestionStartTime": {
+										"value": {
+											"value": "@pipeline().TriggerTime",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"PipelineRunId": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"SourceName": {
+										"value": {
+											"value": "@concat(activity('Get_Config_Details_For_Publish').output.value[0].SchemaName,'.',activity('Get_Config_Details_For_Publish').output.value[0].TableName)",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"SourceRowCount": {
+										"value": {
+											"value": "@int(variables('Source_Row_Count'))",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"SourceType": {
+										"value": {
+											"value": "Stage Layer",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"Status": {
+										"value": {
+											"value": "Completed",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"TargetName": {
+										"value": {
+											"value": "@concat(activity('Get_Config_Details_For_Publish').output.value[0].SchemaName,'.',activity('Get_Config_Details_For_Publish').output.value[0].TableName)",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"TargetRowCount": {
+										"value": {
+											"value": "@int(variables('Target_Row_Count'))",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"TargetType": {
+										"value": {
+											"value": "Published Layer",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"MasterPipelineId": {
+										"value": {
+											"value": "@pipeline().parameters.Master_Pipeline_Id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"MasterPipelineName": {
+										"value": {
+											"value": "@pipeline().parameters.Master_Pipeline_Name",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"PipelineName": {
+										"value": {
+											"value": "@pipeline().Pipeline",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"StatusMessage": {
+										"value": null,
+										"type": "String"
+									},
+									"ErrorCode": {
+										"value": null,
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics_PROD",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Get_Record_Count_Of_Target_Fact",
+							"type": "Lookup",
+							"dependsOn": [
+								{
+									"activity": "Sp_Incremental_Load_From_Stage_To_Main_Fact",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlDWSource",
+									"sqlReaderQuery": {
+										"value": "@concat('Select Count(*) as count from ', activity('Get_Config_Details_For_Publish').output.value[0].SchemaName, '.' ,activity('Get_Config_Details_For_Publish').output.value[0].TableName, ' where DL_Createddatetime = (Select max(DL_Createddatetime) from ', activity('Get_Config_Details_For_Publish').output.value[0].SchemaName, '.' ,activity('Get_Config_Details_For_Publish').output.value[0].TableName,')')",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "AzureSynapseAnalytics_Table2",
+									"type": "DatasetReference",
+									"parameters": {
+										"SchemaName": {
+											"value": "@activity('Get_Config_Details_For_Publish').output.value[0].SchemaName",
+											"type": "Expression"
+										},
+										"TableName": {
+											"value": "@activity('Get_Config_Details_For_Publish').output.value[0].TableName",
+											"type": "Expression"
+										}
+									}
+								},
+								"firstRowOnly": true
+							}
+						},
+						{
+							"name": "Set_Target_Row_Count_Fact",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Get_Record_Count_Of_Target_Fact",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Target_Row_Count",
+								"value": {
+									"value": "@string(activity('Get_Record_Count_Of_Target_Fact').output.firstRow.count)",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Get_Record_Count_Of_Stage_Source_Fact",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlDWSource",
+									"sqlReaderQuery": {
+										"value": "@concat('Select Count(*) as count from ', activity('Get_Config_Details_For_Publish').output.value[0].SchemaName, '.' ,activity('Get_Config_Details_For_Publish').output.value[0].StageTable)",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "AzureSynapseAnalytics_Table2",
+									"type": "DatasetReference",
+									"parameters": {
+										"SchemaName": {
+											"value": "@activity('Get_Config_Details_For_Publish').output.value[0].SchemaName",
+											"type": "Expression"
+										},
+										"TableName": {
+											"value": "@activity('Get_Config_Details_For_Publish').output.value[0].StageTable",
+											"type": "Expression"
+										}
+									}
+								}
+							}
+						},
+						{
+							"name": "Set_Source_Row_Count_Fact",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Get_Record_Count_Of_Stage_Source_Fact",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Source_Row_Count",
+								"value": {
+									"value": "@string(activity('Get_Record_Count_Of_Stage_Source_Fact').output.firstRow.count)",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Sp_Duplicate_Count_Capture_Fact",
+							"description": "Captures the duplicate count from the table in the audit table ",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Sp_Create_Publishedlayer_Success_Ingestion_Auditlog_Fct",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": {
+									"value": "[dbo].[sp_duplicate_records_count]",
+									"type": "Expression"
+								},
+								"storedProcedureParameters": {
+									"MasterPipelineId": {
+										"value": {
+											"value": "@pipeline().parameters.Master_Pipeline_Id",
+											"type": "Expression"
+										}
+									},
+									"PipelineRunId": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"StageTargetName": {
+										"value": {
+											"value": "@concat(activity('Get_Config_Details_For_Publish').output.value[0].SchemaName,'.',activity('Get_Config_Details_For_Publish').output.value[0].StageTable)",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"TargetName": {
+										"value": {
+											"value": "@concat(activity('Get_Config_Details_For_Publish').output.value[0].SchemaName,'.',activity('Get_Config_Details_For_Publish').output.value[0].TableName)",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics_PROD",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Sp_Create_Publishedlayer_Failed_Ingestion_Auditlog",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Check_If_Fact_Or_Dim",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[sp_create_ingestion_auditlog]",
+					"storedProcedureParameters": {
+						"IngestionEndTime": {
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"IngestionStartTime": {
+							"value": {
+								"value": "@pipeline().TriggerTime",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"PipelineRunId": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceName": {
+							"value": {
+								"value": "@concat(activity('Get_Config_Details_For_Publish').output.value[0].SchemaName,'.',activity('Get_Config_Details_For_Publish').output.value[0].StageTable)",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceRowCount": {
+							"value": {
+								"value": "0",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"SourceType": {
+							"value": {
+								"value": "Stage Layer",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"Status": {
+							"value": {
+								"value": "Failed",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetName": {
+							"value": {
+								"value": "@concat(activity('Get_Config_Details_For_Publish').output.value[0].SchemaName,'.',activity('Get_Config_Details_For_Publish').output.value[0].TableName)",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetRowCount": {
+							"value": {
+								"value": "0",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TargetType": {
+							"value": {
+								"value": "Published Layer",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"MasterPipelineId": {
+							"value": {
+								"value": "@pipeline().parameters.Master_Pipeline_Id",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"MasterPipelineName": {
+							"value": {
+								"value": "@pipeline().parameters.Master_Pipeline_Name",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"PipelineName": {
+							"value": {
+								"value": "@pipeline().Pipeline",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"StatusMessage": {
+							"value": {
+								"value": "@variables('Error_Message')",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"ErrorCode": {
+							"value": {
+								"value": "@variables('Error_Code')",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSynapseAnalytics_PROD",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Fail_Stg_To_Publish",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "Failure_Mail",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": "Data loading failed from Staging to Published",
+					"errorCode": "101"
+				}
+			},
+			{
+				"name": "Failure_Mail",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Sp_Create_Publishedlayer_Failed_Ingestion_Auditlog",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"url": {
+						"value": "@pipeline().globalParameters.LogicApp_generic_pl_failure_email",
+						"type": "Expression"
+					},
+					"body": {
+						"value": "{\n    \"Environment\":\"@{pipeline().globalParameters.Environment}\",\n\t\"DataFactoryName\":\"@{pipeline().Pipeline}\",\n\t\"ErrorMessage\":\"Data loading failed from Staging to Published\",\n\t\"RunId\":\"@{pipeline().RunId}\",\n\t\"pipelineName\":\"@{pipeline().Pipeline}\",\n\t\"SourceType\":\"@{pipeline().parameters.Sourcetype}\",\n    \"FileName\":\"@{activity('Get_Config_Details_For_Publish').output.value[0].TableName}\"\n}\n",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"Config_Schema_Name": {
+				"type": "string"
+			},
+			"Config_Table_Name": {
+				"type": "string"
+			},
+			"Sourcetype": {
+				"type": "string"
+			},
+			"Master_Pipeline_Name": {
+				"type": "string"
+			},
+			"Master_Pipeline_Id": {
+				"type": "string"
+			},
+			"Col": {
+				"type": "string"
+			},
+			"Source_File_Pattern": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"Target_Row_Count": {
+				"type": "String"
+			},
+			"Source_Row_Count": {
+				"type": "String"
+			},
+			"Error_Message": {
+				"type": "String"
+			},
+			"Error_Code": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "PBNA"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:03Z"
+	}
+}

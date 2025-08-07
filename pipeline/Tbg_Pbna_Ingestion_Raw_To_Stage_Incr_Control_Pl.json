@@ -1,0 +1,364 @@
+{
+	"name": "Tbg_Pbna_Ingestion_Raw_To_Stage_Incr_Control_Pl",
+	"properties": {
+		"description": "This pipeline is data of PBNA",
+		"activities": [
+			{
+				"name": "Get_Raw_To_Publish_Details",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT LoadFrequency,Sourcetype,RawFolderPath,ProcessedFolderPath,FileFormat, IS_SFTP_SERVER, RawFilePattern,SchemaName,StageTable,TableName FROM ',pipeline().parameters.Config_Schema_Name, '.' ,pipeline().parameters.Config_Table_Name,' WHERE Sourcetype=''',pipeline().parameters.Sourcetype,'''',' and loadtype =''Incremental'' and RawFilePattern like ''',pipeline().parameters.Source_File_Pattern,'''')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSynapseAnalytics_Table2",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.Config_Schema_Name",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.Config_Table_Name",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": true
+				}
+			},
+			{
+				"name": "If_Exist_Then_Load_Raw_To_Stage",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Get_Metadata_Of_Specific_Raw_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@not(empty(activity('Get_Metadata_Of_Specific_Raw_File').output.childItems))",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Sp_Create_Rawlayer_Success_Ingestion_Auditlog",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Sp_Truncate_Stage_Table",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[sp_create_ingestion_auditlog]",
+								"storedProcedureParameters": {
+									"IngestionEndTime": {
+										"value": {
+											"value": "@utcNow()",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"IngestionStartTime": {
+										"value": {
+											"value": "@pipeline().TriggerTime",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"PipelineRunId": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"SourceName": {
+										"value": {
+											"value": "file not available",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"SourceRowCount": {
+										"value": {
+											"value": "0",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"SourceType": {
+										"value": {
+											"value": "Raw Layer",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"Status": {
+										"value": {
+											"value": "Completed",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"TargetName": {
+										"value": {
+											"value": "@concat(activity('Get_Raw_To_Publish_Details').output.firstRow.SchemaName,'.',activity('Get_Raw_To_Publish_Details').output.firstRow.StageTable)",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"TargetRowCount": {
+										"value": {
+											"value": "0",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"TargetType": {
+										"value": {
+											"value": "Stage Layer",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"MasterPipelineId": {
+										"value": {
+											"value": "@pipeline().parameters.Master_Pipeline_Id",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"MasterPipelineName": {
+										"value": {
+											"value": "@pipeline().parameters.Master_Pipeline_Name",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"PipelineName": {
+										"value": {
+											"value": "@pipeline().Pipeline",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"StatusMessage": {
+										"value": null,
+										"type": "String"
+									},
+									"ErrorCode": {
+										"value": null,
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics_PROD",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Sp_Truncate_Stage_Table",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[sp_truncate_table]",
+								"storedProcedureParameters": {
+									"schema_name": {
+										"value": {
+											"value": "@activity('Get_Raw_To_Publish_Details').output.firstRow.SchemaName",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"table_name": {
+										"value": {
+											"value": "@activity('Get_Raw_To_Publish_Details').output.firstRow.StageTable",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "LS_AzureSynapseAnalytics_PROD",
+								"type": "LinkedServiceReference"
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Tbg_Pbna_Raw_Stage_Pl",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Tbg_Pbna_Ingestion_Raw_To_Stage_Incremental_Pl",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Raw_File_Directory": {
+										"value": "@activity('Get_Raw_To_Publish_Details').output.firstRow.RawFolderPath",
+										"type": "Expression"
+									},
+									"Raw_File_Pattern": {
+										"value": "@activity('Get_Raw_To_Publish_Details').output.firstRow.RawFilePattern",
+										"type": "Expression"
+									},
+									"Table_Schema": {
+										"value": "@activity('Get_Raw_To_Publish_Details').output.firstRow.SchemaName",
+										"type": "Expression"
+									},
+									"Stage_Table": {
+										"value": "@activity('Get_Raw_To_Publish_Details').output.firstRow.StageTable",
+										"type": "Expression"
+									},
+									"Table_Name": {
+										"value": "@activity('Get_Raw_To_Publish_Details').output.firstRow.TableName",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Name": {
+										"value": "@pipeline().parameters.Master_Pipeline_Name",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Id": {
+										"value": "@pipeline().parameters.Master_Pipeline_Id",
+										"type": "Expression"
+									},
+									"Load_Frequency": {
+										"value": "@concat(activity('Get_Raw_To_Publish_Details').output.firstRow.loadFrequency,'*')",
+										"type": "Expression"
+									},
+									"Sourcetype": {
+										"value": "@pipeline().parameters.Sourcetype",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Get_Metadata_Of_Specific_Raw_File",
+				"type": "GetMetadata",
+				"dependsOn": [
+					{
+						"activity": "Get_Raw_To_Publish_Details",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "BinarySourceFileStore",
+						"type": "DatasetReference",
+						"parameters": {
+							"container": {
+								"value": "@pipeline().globalParameters.SourceContainer",
+								"type": "Expression"
+							},
+							"directory": {
+								"value": "@activity('Get_Raw_To_Publish_Details').output.firstRow.RawFolderPath",
+								"type": "Expression"
+							},
+							"FileName": {
+								"value": "@concat(activity('Get_Raw_To_Publish_Details').output.firstRow.RawFilePattern,activity('Get_Raw_To_Publish_Details').output.firstRow.LoadFrequency,'*')",
+								"type": "Expression"
+							}
+						}
+					},
+					"fieldList": [
+						"childItems",
+						"itemType"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true
+					},
+					"formatSettings": {
+						"type": "BinaryReadSettings"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"Config_Schema_Name": {
+				"type": "string"
+			},
+			"Config_Table_Name": {
+				"type": "string"
+			},
+			"Sourcetype": {
+				"type": "string"
+			},
+			"Master_Pipeline_Name": {
+				"type": "string"
+			},
+			"Master_Pipeline_Id": {
+				"type": "string"
+			},
+			"Source_File_Pattern": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "PBNA"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:14Z"
+	}
+}

@@ -1,0 +1,769 @@
+{
+	"name": "Tbg_Pbna_Ingestion_Raw_Stage_Publish_Incremental_Pl",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get_Files_Exist_Status_Of_Raw",
+				"type": "GetMetadata",
+				"dependsOn": [
+					{
+						"activity": "Get_Raw_And_Archive_Details",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "BinarySourceFileDir",
+						"type": "DatasetReference",
+						"parameters": {
+							"container": {
+								"value": "@pipeline().globalParameters.SourceContainer",
+								"type": "Expression"
+							},
+							"directory": {
+								"value": "@activity('Get_Raw_And_Archive_Details').output.firstRow.RawFolderPath",
+								"type": "Expression"
+							}
+						}
+					},
+					"fieldList": [
+						"exists"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true
+					},
+					"formatSettings": {
+						"type": "BinaryReadSettings"
+					}
+				}
+			},
+			{
+				"name": "Archive_Raw_Files",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "If_Files_Exists_Then_Data_Load_Of_Raw_To_Publish",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get_Metadata_Of_Raw').output.childItems",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Archive_File",
+							"description": "It archives  PBNA files ",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "BinarySource",
+									"storeSettings": {
+										"type": "AzureBlobStorageReadSettings",
+										"recursive": false,
+										"deleteFilesAfterCompletion": true
+									},
+									"formatSettings": {
+										"type": "BinaryReadSettings"
+									}
+								},
+								"sink": {
+									"type": "BinarySink",
+									"storeSettings": {
+										"type": "AzureBlobStorageWriteSettings"
+									}
+								},
+								"enableStaging": false
+							},
+							"inputs": [
+								{
+									"referenceName": "BinarySourceFileStore",
+									"type": "DatasetReference",
+									"parameters": {
+										"container": {
+											"value": "@pipeline().globalParameters.SourceContainer",
+											"type": "Expression"
+										},
+										"directory": {
+											"value": "@activity('Get_Raw_And_Archive_Details').output.firstRow.RawFolderPath",
+											"type": "Expression"
+										},
+										"FileName": {
+											"value": "@item().name",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "archival_binary_file",
+									"type": "DatasetReference",
+									"parameters": {
+										"FolderName": {
+											"value": "@concat(activity('Get_Raw_And_Archive_Details').output.firstRow.ArchiveFolderPath,'/','YYYY=',formatDateTime(utcNow(),'yyyy'),'/','MM=',formatDateTime(utcNow(),'MM'),'/','DD=',formatDateTime(addDays(utcNow(),0),'dd'))",
+											"type": "Expression"
+										},
+										"Container": {
+											"value": "@pipeline().globalParameters.SourceContainer",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				"name": "Get_Raw_And_Archive_Details",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "@concat('select distinct RawFolderPath,SourceType,LoadFrequency,ArchiveFolderPath, replace(RawFilePattern,''Sales*'','''') as RawFilePattern from  ', pipeline().parameters.Config_Schema_Name,'.',pipeline().parameters.Config_Table_Name,'  ','  Where LoadType = ''Incremental'' and Sourcetype = ''',pipeline().parameters.Sourcetype,''' and RawFilePattern like ''%Sales%''')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSynapseAnalytics_Table2",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.Config_Schema_Name",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.Config_Table_Name",
+								"type": "Expression"
+							}
+						}
+					}
+				}
+			},
+			{
+				"name": "If_Files_Exists_Then_Data_Load_Of_Raw_To_Publish",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Get_Files_Exist_Status_Of_Raw",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@activity('Get_Files_Exist_Status_Of_Raw').output.exists",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "Tbg_Pbna_Raw_To_Stage_Customer",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "Filtering_Files",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Tbg_Pbna_Ingestion_Raw_To_Stage_Incr_Control_Pl",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Config_Schema_Name": {
+										"value": "@pipeline().parameters.Config_Schema_Name",
+										"type": "Expression"
+									},
+									"Config_Table_Name": {
+										"value": "@pipeline().parameters.Config_Table_Name",
+										"type": "Expression"
+									},
+									"Sourcetype": {
+										"value": "@pipeline().parameters.Sourcetype",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Name": {
+										"value": "@variables('Master_Pipeline_Name')",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Id": {
+										"value": "@variables('Master_Pipeline_Id')",
+										"type": "Expression"
+									},
+									"Source_File_Pattern": {
+										"value": "%Customer%",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Tbg_Pbna_Raw_To_Stage_Product",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "Filtering_Files",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Tbg_Pbna_Ingestion_Raw_To_Stage_Incr_Control_Pl",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Config_Schema_Name": {
+										"value": "@pipeline().parameters.Config_Schema_Name",
+										"type": "Expression"
+									},
+									"Config_Table_Name": {
+										"value": "@pipeline().parameters.Config_Table_Name",
+										"type": "Expression"
+									},
+									"Sourcetype": {
+										"value": "@pipeline().parameters.Sourcetype",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Name": {
+										"value": "@variables('Master_Pipeline_Name')",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Id": {
+										"value": "@variables('Master_Pipeline_Id')",
+										"type": "Expression"
+									},
+									"Source_File_Pattern": {
+										"value": "%Product%",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Tbg_Pbna_Raw_To_Stage_Location",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "Filtering_Files",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Tbg_Pbna_Ingestion_Raw_To_Stage_Incr_Control_Pl",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Config_Schema_Name": {
+										"value": "@pipeline().parameters.Config_Schema_Name",
+										"type": "Expression"
+									},
+									"Config_Table_Name": {
+										"value": "@pipeline().parameters.Config_Table_Name",
+										"type": "Expression"
+									},
+									"Sourcetype": {
+										"value": "@pipeline().parameters.Sourcetype",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Name": {
+										"value": "@variables('Master_Pipeline_Name')",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Id": {
+										"value": "@variables('Master_Pipeline_Id')",
+										"type": "Expression"
+									},
+									"Source_File_Pattern": {
+										"value": "%Location%",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Tbg_Pbna_Raw_To_Stage_Sales",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "Filtering_Files",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Tbg_Pbna_Ingestion_Raw_To_Stage_Incr_Control_Pl",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Config_Schema_Name": {
+										"value": "@pipeline().parameters.Config_Schema_Name",
+										"type": "Expression"
+									},
+									"Config_Table_Name": {
+										"value": "@pipeline().parameters.Config_Table_Name",
+										"type": "Expression"
+									},
+									"Sourcetype": {
+										"value": "@pipeline().parameters.Sourcetype",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Name": {
+										"value": "@variables('Master_Pipeline_Name')",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Id": {
+										"value": "@variables('Master_Pipeline_Id')",
+										"type": "Expression"
+									},
+									"Source_File_Pattern": {
+										"value": "%Sales%",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Tbg_Stg_To_Publish_Customer",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "Tbg_Pbna_Raw_To_Stage_Customer",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Tbg_Pbna_Ingestion_Stg_To_Publish_Incremental_Pl",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Config_Schema_Name": {
+										"value": "@pipeline().parameters.Config_Schema_Name",
+										"type": "Expression"
+									},
+									"Config_Table_Name": {
+										"value": "@pipeline().parameters.Config_Table_Name",
+										"type": "Expression"
+									},
+									"Sourcetype": {
+										"value": "@pipeline().parameters.Sourcetype",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Name": {
+										"value": "@variables('Master_Pipeline_Name')",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Id": {
+										"value": "@variables('Master_Pipeline_Id')",
+										"type": "Expression"
+									},
+									"Col": {
+										"value": "CUST_ID",
+										"type": "Expression"
+									},
+									"Source_File_Pattern": {
+										"value": "%Customer%",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Tbg_Stg_To_Publish_Product",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "Tbg_Pbna_Raw_To_Stage_Product",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Tbg_Pbna_Ingestion_Stg_To_Publish_Incremental_Pl",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Config_Schema_Name": {
+										"value": "@pipeline().parameters.Config_Schema_Name",
+										"type": "Expression"
+									},
+									"Config_Table_Name": {
+										"value": "@pipeline().parameters.Config_Table_Name",
+										"type": "Expression"
+									},
+									"Sourcetype": {
+										"value": "@pipeline().parameters.Sourcetype",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Name": {
+										"value": "@variables('Master_Pipeline_Name')",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Id": {
+										"value": "@variables('Master_Pipeline_Id')",
+										"type": "Expression"
+									},
+									"Col": {
+										"value": "INVEN_ID",
+										"type": "Expression"
+									},
+									"Source_File_Pattern": {
+										"value": "%Product%",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Tbg_Stg_To_Publish_Location",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "Tbg_Pbna_Raw_To_Stage_Location",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Tbg_Pbna_Ingestion_Stg_To_Publish_Incremental_Pl",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Config_Schema_Name": {
+										"value": "@pipeline().parameters.Config_Schema_Name",
+										"type": "Expression"
+									},
+									"Config_Table_Name": {
+										"value": "@pipeline().parameters.Config_Table_Name",
+										"type": "Expression"
+									},
+									"Sourcetype": {
+										"value": "@pipeline().parameters.Sourcetype",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Name": {
+										"value": "@variables('Master_Pipeline_Name')",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Id": {
+										"value": "@variables('Master_Pipeline_Id')",
+										"type": "Expression"
+									},
+									"Col": {
+										"value": "Loc_ID",
+										"type": "Expression"
+									},
+									"Source_File_Pattern": {
+										"value": "%Location%",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Tbg_Stg_To_Publish_Sales",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "Tbg_Stg_To_Publish_Customer",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Tbg_Stg_To_Publish_Product",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Tbg_Stg_To_Publish_Location",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Tbg_Pbna_Raw_To_Stage_Sales",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "Tbg_Pbna_Ingestion_Stg_To_Publish_Incremental_Pl",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Config_Schema_Name": {
+										"value": "@pipeline().parameters.Config_Schema_Name",
+										"type": "Expression"
+									},
+									"Config_Table_Name": {
+										"value": "@pipeline().parameters.Config_Table_Name",
+										"type": "Expression"
+									},
+									"Sourcetype": {
+										"value": "@pipeline().parameters.Sourcetype",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Name": {
+										"value": "@variables('Master_Pipeline_Name')",
+										"type": "Expression"
+									},
+									"Master_Pipeline_Id": {
+										"value": "@variables('Master_Pipeline_Id')",
+										"type": "Expression"
+									},
+									"Source_File_Pattern": {
+										"value": "%Sales%",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Filtering_Files",
+							"type": "Filter",
+							"dependsOn": [
+								{
+									"activity": "Get_Metadata_Of_Raw",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Set_Master_Pipeine_Name",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Set_Master_Pipeline_Id",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"items": {
+									"value": "@activity('Get_Metadata_Of_Raw').output.childItems",
+									"type": "Expression"
+								},
+								"condition": {
+									"value": "@equals(item().type,'File')",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Get_Metadata_Of_Raw",
+							"type": "GetMetadata",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "BinarySourceFileStore",
+									"type": "DatasetReference",
+									"parameters": {
+										"container": {
+											"value": "@pipeline().globalParameters.SourceContainer",
+											"type": "Expression"
+										},
+										"directory": {
+											"value": "@activity('Get_Raw_And_Archive_Details').output.firstRow.RawFolderPath",
+											"type": "Expression"
+										},
+										"FileName": {
+											"value": "@concat(activity('Get_Raw_And_Archive_Details').output.firstRow.RawFilePattern,activity('Get_Raw_And_Archive_Details').output.firstRow.LoadFrequency,'*')",
+											"type": "Expression"
+										}
+									}
+								},
+								"fieldList": [
+									"childItems",
+									"itemType"
+								],
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true
+								},
+								"formatSettings": {
+									"type": "BinaryReadSettings"
+								}
+							}
+						},
+						{
+							"name": "Set_Master_Pipeine_Name",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Master_Pipeline_Name",
+								"value": {
+									"value": "@pipeline().parameters.Master_Pipelinename",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set_Master_Pipeline_Id",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Master_Pipeline_Id",
+								"value": {
+									"value": "@pipeline().parameters.Master_Pipelineid",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"Config_Schema_Name": {
+				"type": "string"
+			},
+			"Config_Table_Name": {
+				"type": "string"
+			},
+			"Sourcetype": {
+				"type": "string"
+			},
+			"Master_Pipelinename": {
+				"type": "string"
+			},
+			"Master_Pipelineid": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"Master_Pipeline_Name": {
+				"type": "String"
+			},
+			"Master_Pipeline_Id": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "PBNA"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:16Z"
+	}
+}

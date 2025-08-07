@@ -1,0 +1,826 @@
+{
+	"name": "Tbg_Pbna_Ingestion_Raw_To_Stage_Incremental_Pl",
+	"properties": {
+		"description": "Scan the file path on your source storage store and get the container list.",
+		"activities": [
+			{
+				"name": "Get_Metadata_Of_Specific_Raw_File",
+				"type": "GetMetadata",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "BinarySourceFileStore",
+						"type": "DatasetReference",
+						"parameters": {
+							"container": {
+								"value": "@pipeline().globalParameters.SourceContainer",
+								"type": "Expression"
+							},
+							"directory": {
+								"value": "@pipeline().parameters.Raw_File_Directory",
+								"type": "Expression"
+							},
+							"FileName": {
+								"value": "@concat(pipeline().parameters.Raw_File_Pattern,pipeline().parameters.Load_Frequency)",
+								"type": "Expression"
+							}
+						}
+					},
+					"fieldList": [
+						"itemType",
+						"childItems"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true
+					},
+					"formatSettings": {
+						"type": "BinaryReadSettings"
+					}
+				}
+			},
+			{
+				"name": "Filtering_Files",
+				"type": "Filter",
+				"dependsOn": [
+					{
+						"activity": "Set_Full_Table_Name",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get_Metadata_Of_Specific_Raw_File').output.childItems",
+						"type": "Expression"
+					},
+					"condition": {
+						"value": "@equals(item().type,'File')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Each_File_Load_Raw_To_Stage",
+				"description": "Get the container list from Metadata activity and then iterates each of them to Copy activity.",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Sp_Truncate_Stage_Table",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Filtering_Files').output.Value",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Copy_Data_Raw_To_Synapse_Stg",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "DelimitedTextSource",
+									"storeSettings": {
+										"type": "AzureBlobStorageReadSettings",
+										"recursive": true,
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "DelimitedTextReadSettings"
+									}
+								},
+								"sink": {
+									"type": "SqlDWSink",
+									"allowCopyCommand": true,
+									"disableMetricsCollection": false
+								},
+								"enableStaging": true,
+								"stagingSettings": {
+									"linkedServiceName": {
+										"referenceName": "LS_AzureBlobStorage_Prod",
+										"type": "LinkedServiceReference"
+									},
+									"path": {
+										"value": "@concat(pipeline().globalParameters.SourceContainer, '/Tropicana/Log')",
+										"type": "Expression"
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "PBNA_File",
+									"type": "DatasetReference",
+									"parameters": {
+										"Container": {
+											"value": "@pipeline().globalParameters.SourceContainer",
+											"type": "Expression"
+										},
+										"Directory": {
+											"value": "@pipeline().parameters.Raw_File_Directory",
+											"type": "Expression"
+										},
+										"FileName": "@item().name"
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "AzureSynapseAnalytics_Table2",
+									"type": "DatasetReference",
+									"parameters": {
+										"SchemaName": {
+											"value": "@pipeline().parameters.Table_Schema",
+											"type": "Expression"
+										},
+										"TableName": {
+											"value": "@pipeline().parameters.Stage_Table",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "Set_Target_Row_Count",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Copy_Data_Raw_To_Synapse_Stg",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Target_Row_Count",
+								"value": {
+									"value": "@string(activity('Copy_Data_Raw_To_Synapse_Stg').output.rowsCopied)",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set_Source_Row_Count",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Copy_Data_Raw_To_Synapse_Stg",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Source_Row_Count",
+								"value": {
+									"value": "@string(activity('Copy_Data_Raw_To_Synapse_Stg').output.rowsRead)",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set_Error_Message",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Copy_Data_Raw_To_Synapse_Stg",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Error_Message",
+								"value": {
+									"value": "@activity('Copy_Data_Raw_To_Synapse_Stg').output.errors[0].Message",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set_Error_Code",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Copy_Data_Raw_To_Synapse_Stg",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Error_Code",
+								"value": {
+									"value": "@string(activity('Copy_Data_Raw_To_Synapse_Stg').StatusCode)",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set_File_Name",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Copy_Data_Raw_To_Synapse_Stg",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Source_File_Name",
+								"value": {
+									"value": "@item().name",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Check_Sales_Record_count",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "Set_Target_Row_Count",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Set_Source_Row_Count",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@and(contains(pipeline().parameters.Raw_File_Pattern,'Sales')\n    ,equals(int(variables('Target_Row_Count')),0))",
+									"type": "Expression"
+								},
+								"ifFalseActivities": [
+									{
+										"name": "Sp_Create_Stagelayer_Success_Ingestion_Auditlog",
+										"type": "SqlServerStoredProcedure",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"storedProcedureName": "[dbo].[sp_create_ingestion_auditlog]",
+											"storedProcedureParameters": {
+												"IngestionEndTime": {
+													"value": {
+														"value": "@utcNow()",
+														"type": "Expression"
+													},
+													"type": "DateTime"
+												},
+												"IngestionStartTime": {
+													"value": {
+														"value": "@pipeline().TriggerTime",
+														"type": "Expression"
+													},
+													"type": "DateTime"
+												},
+												"PipelineRunId": {
+													"value": {
+														"value": "@pipeline().RunId",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"SourceName": {
+													"value": {
+														"value": "@item().name",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"SourceRowCount": {
+													"value": {
+														"value": "@int(variables('Source_Row_Count'))",
+														"type": "Expression"
+													},
+													"type": "Int32"
+												},
+												"SourceType": {
+													"value": {
+														"value": "Raw Layer",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"Status": {
+													"value": {
+														"value": "Completed",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"TargetName": {
+													"value": {
+														"value": "@variables('Stage_Full_Table_Name')",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"TargetRowCount": {
+													"value": {
+														"value": "@int(variables('Target_Row_Count'))",
+														"type": "Expression"
+													},
+													"type": "Int32"
+												},
+												"TargetType": {
+													"value": {
+														"value": "Stage Layer",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"MasterPipelineId": {
+													"value": {
+														"value": "@pipeline().parameters.Master_Pipeline_Id",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"MasterPipelineName": {
+													"value": {
+														"value": "@pipeline().parameters.Master_Pipeline_Name",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"PipelineName": {
+													"value": {
+														"value": "@pipeline().Pipeline",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"StatusMessage": {
+													"value": null,
+													"type": "String"
+												},
+												"ErrorCode": {
+													"value": null,
+													"type": "String"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "LS_AzureSynapseAnalytics_PROD",
+											"type": "LinkedServiceReference"
+										}
+									}
+								],
+								"ifTrueActivities": [
+									{
+										"name": "File_Name",
+										"type": "SetVariable",
+										"dependsOn": [],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "Source_File_Name",
+											"value": {
+												"value": "@item().name",
+												"type": "Expression"
+											}
+										}
+									},
+									{
+										"name": "Error_Msg",
+										"type": "SetVariable",
+										"dependsOn": [],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "Error_Message",
+											"value": {
+												"value": "Sales file is empty",
+												"type": "Expression"
+											}
+										}
+									},
+									{
+										"name": "Error_Code",
+										"type": "SetVariable",
+										"dependsOn": [],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "Error_Code",
+											"value": {
+												"value": "100",
+												"type": "Expression"
+											}
+										}
+									},
+									{
+										"name": "Fail_empty_sales",
+										"type": "Fail",
+										"dependsOn": [
+											{
+												"activity": "File_Name",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											},
+											{
+												"activity": "Error_Msg",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											},
+											{
+												"activity": "Error_Code",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"userProperties": [],
+										"typeProperties": {
+											"message": "empty sales file recieved",
+											"errorCode": "100"
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Set_Full_Table_Name",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Get_Metadata_Of_Specific_Raw_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Stage_Full_Table_Name",
+					"value": {
+						"value": "@concat(pipeline().parameters.Table_Schema,'.',pipeline().parameters.Stage_Table)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Sp_Truncate_Stage_Table",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Filtering_Files",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[sp_truncate_table]",
+					"storedProcedureParameters": {
+						"schema_name": {
+							"value": {
+								"value": "@pipeline().parameters.Table_Schema",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"table_name": {
+							"value": {
+								"value": "@pipeline().parameters.Stage_Table",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSynapseAnalytics_PROD",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Sp_Create_Stagelayer_Failed_Ingestion_Auditlog",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Each_File_Load_Raw_To_Stage",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[sp_create_ingestion_auditlog]",
+					"storedProcedureParameters": {
+						"IngestionEndTime": {
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"IngestionStartTime": {
+							"value": {
+								"value": "@pipeline().TriggerTime",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"PipelineRunId": {
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceName": {
+							"value": {
+								"value": "@variables('Source_File_Name')",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceRowCount": {
+							"value": {
+								"value": "0",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"SourceType": {
+							"value": {
+								"value": "Raw Layer",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"Status": {
+							"value": {
+								"value": "Failed",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetName": {
+							"value": {
+								"value": "@variables('Stage_Full_Table_Name')",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TargetRowCount": {
+							"value": {
+								"value": "0",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"TargetType": {
+							"value": {
+								"value": "Stage Layer",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"MasterPipelineId": {
+							"value": {
+								"value": "@pipeline().parameters.Master_Pipeline_Id",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"MasterPipelineName": {
+							"value": {
+								"value": "@pipeline().parameters.Master_Pipeline_Name",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"PipelineName": {
+							"value": {
+								"value": "@pipeline().Pipeline",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"StatusMessage": {
+							"value": {
+								"value": "@variables('Error_Message')",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"ErrorCode": {
+							"value": {
+								"value": "@variables('Error_Code')",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureSynapseAnalytics_PROD",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Fail_Raw_To_Stg",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "Failure_Mail",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": "Data loading failed from Raw to Staging",
+					"errorCode": "101"
+				}
+			},
+			{
+				"name": "Failure_Mail",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Sp_Create_Stagelayer_Failed_Ingestion_Auditlog",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"url": {
+						"value": "@pipeline().globalParameters.LogicApp_generic_pl_failure_email",
+						"type": "Expression"
+					},
+					"body": {
+						"value": "{\n    \"Environment\":\"@{pipeline().globalParameters.Environment}\",\n\t\"DataFactoryName\":\"@{pipeline().Pipeline}\",\n\t\"ErrorMessage\":\"@{variables('Error_Message')}\",\n\t\"RunId\":\"@{pipeline().RunId}\",\n\t\"pipelineName\":\"@{pipeline().Pipeline}\",\n\t\"SourceType\":\"@{pipeline().parameters.Sourcetype}\",\n    \"FileName\":\"@{variables('Source_File_Name')}\"\n}\n",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"Raw_File_Directory": {
+				"type": "string"
+			},
+			"Raw_File_Pattern": {
+				"type": "string"
+			},
+			"Table_Schema": {
+				"type": "string"
+			},
+			"Stage_Table": {
+				"type": "string"
+			},
+			"Table_Name": {
+				"type": "string"
+			},
+			"Master_Pipeline_Name": {
+				"type": "string"
+			},
+			"Master_Pipeline_Id": {
+				"type": "string"
+			},
+			"Load_Frequency": {
+				"type": "string"
+			},
+			"Sourcetype": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"Source_File_Name": {
+				"type": "String"
+			},
+			"Stage_Full_Table_Name": {
+				"type": "String"
+			},
+			"Target_Row_Count": {
+				"type": "String"
+			},
+			"Source_Row_Count": {
+				"type": "String"
+			},
+			"Error_Message": {
+				"type": "String"
+			},
+			"Error_Code": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "PBNA"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:11Z"
+	}
+}

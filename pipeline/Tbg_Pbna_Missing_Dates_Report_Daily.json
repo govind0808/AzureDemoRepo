@@ -1,0 +1,349 @@
+{
+	"name": "Tbg_Pbna_Missing_Dates_Report_Daily",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy_Missing_Dates_To_File",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": {
+							"value": "With a as (Select DATEADD(DAY, -15, Max_caldr_dte) Min_caldr_dte,Max_caldr_dte from (\nselect max(cal_dt) Max_caldr_dte\nfrom tbg_retail_published.tbg_Calendar_Dim\nwhere (cal_dt < getdate() - 4) ) a),\nb as (Select Cal_dt,min_Caldr_dte,Max_Caldr_Dte from a\ninner join tbg_retail_published.tbg_Calendar_Dim on Cal_dt between min_Caldr_Dte and Max_Caldr_Dte\ninner join Tbg_Pbna.TBG_PBNA_Sales_Fact on Caldr_Dte between min_Caldr_Dte and Max_Caldr_Dte\ngroup by Cal_dt,min_Caldr_Dte,Max_Caldr_Dte),\nc as (select Caldr_Dte from Tbg_Pbna.TBG_PBNA_Sales_Fact group by Caldr_Dte)\nSelect * from (Select Cal_Dt Caldr_Dte from b\nExcept\nselect Caldr_Dte from c ) a\norder by 1;",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "DelimitedTextSink",
+						"storeSettings": {
+							"type": "AzureBlobStorageWriteSettings"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextWriteSettings",
+							"quoteAllText": true,
+							"fileExtension": ".txt"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "AzureSynapseAnalytics_Table2",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@pipeline().parameters.Schema_Name",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.Table_Name",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "tbg_pbna_missing_dates_file",
+						"type": "DatasetReference",
+						"parameters": {
+							"ContainerName": {
+								"value": "@pipeline().globalParameters.SourceContainer",
+								"type": "Expression"
+							},
+							"FolderPath": {
+								"value": "@pipeline().parameters.Folder_Name",
+								"type": "Expression"
+							},
+							"FileName": {
+								"value": "@concat(pipeline().parameters.File_Name,'_',formatDatetime(utcnow(),'dd-MM-yyy'),'.csv')",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "Set_File_Path",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Copy_Missing_Dates_To_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Full_File_Path",
+					"value": {
+						"value": "@concat(pipeline().globalParameters.SourceContainer,'/',pipeline().parameters.Folder_Name,'/',pipeline().parameters.File_Name,'_',formatDatetime(utcnow(),'dd-MM-yyy'),'.csv')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_File_Name",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Copy_Missing_Dates_To_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "File_Name",
+					"value": {
+						"value": "@concat(pipeline().parameters.File_Name,'_', formatDatetime(utcnow(),'dd-MM-yyy'),'.csv')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set _Subject",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Copy_Missing_Dates_To_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Subject",
+					"value": {
+						"value": "PBNA Missing Dates",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Target_Rowcount",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Copy_Missing_Dates_To_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Target_Rowcount",
+					"value": {
+						"value": "@string(activity('Copy_Missing_Dates_To_File').output.rowsCopied)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Subject_Line",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Copy_Missing_Dates_To_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Subject_Line",
+					"value": {
+						"value": "PBNA Missing Dates  Pipeline is successfully executed. There are no missing dates for the past one month.",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "If_Rowcount_Greater_Than_Zero",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Set_File_Path",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_File_Name",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set _Subject",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_Target_Rowcount",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_Subject_Line",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(int(variables('Target_Rowcount')),0)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Send_Email_Nodata",
+							"description": "Send email to the respective app owner after the successful migration",
+							"type": "WebActivity",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "POST",
+								"headers": {
+									"Content-Type": "application/json"
+								},
+								"url": {
+									"value": "@pipeline().globalParameters.LogicApp_Missing_Dates_email",
+									"type": "Expression"
+								},
+								"body": {
+									"value": "{\"Environment\":'@{pipeline().globalParameters.Environment}',\n\"Subject\" : '@{variables('Subject')}',\n\"Subject Line\" : '@{variables('Subject_Line')}'}",
+									"type": "Expression"
+								}
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Send_Missing_Date_Mail",
+							"type": "WebActivity",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "POST",
+								"url": {
+									"value": "@pipeline().globalParameters.LogicApp_generic_pl_file_attachment_email",
+									"type": "Expression"
+								},
+								"body": {
+									"value": "{\"Environment\":'@{pipeline().globalParameters.Environment}',\n\"FilePath\" : '@{variables('Full_File_Path')}',\n\"FileName\" : '@{variables('File_Name')}',\n\"Subject\":'@{variables('Subject')}'}",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"Folder_Name": {
+				"type": "string",
+				"defaultValue": "eus1datalakedev/Tropicana/Retail/Inbound/DataRecon/PBNA/Report/MissingDates"
+			},
+			"File_Name": {
+				"type": "string",
+				"defaultValue": "PBNA_Missing_Dates"
+			},
+			"Table_Name": {
+				"type": "string",
+				"defaultValue": "TBG_PBNA_Sales_Fact"
+			},
+			"Schema_Name": {
+				"type": "string",
+				"defaultValue": "Tbg_Pbna"
+			}
+		},
+		"variables": {
+			"Full_File_Path": {
+				"type": "String"
+			},
+			"File_Name": {
+				"type": "String"
+			},
+			"Subject": {
+				"type": "String"
+			},
+			"Target_Rowcount": {
+				"type": "String"
+			},
+			"Subject_Line": {
+				"type": "String"
+			},
+			"Subject_No_Data": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "PBNA"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:11Z"
+	}
+}

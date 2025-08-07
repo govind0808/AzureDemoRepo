@@ -1,0 +1,212 @@
+{
+	"name": "Tbg_Pbna_Data_Recon_Daily",
+	"properties": {
+		"activities": [
+			{
+				"name": "Set_Full_File_Path",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Daily_Recon_Notebook",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Full_File_Path",
+					"value": {
+						"value": "@concat(pipeline().globalParameters.SourceContainer,'/',activity('Daily_Recon_Notebook').output.runOutput)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_File_Name",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set_Full_File_Path",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "File_Name",
+					"value": {
+						"value": "@last(array(split(variables('Full_File_Path'), '/')))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set_Subject",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set_Full_File_Path",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Subject",
+					"value": {
+						"value": "PBNA Daily Recon",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Send_Success_Email",
+				"description": "Send email to the respective app owner after the successful migration",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Set_File_Name",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set_Subject",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json"
+					},
+					"url": {
+						"value": "@pipeline().globalParameters.LogicApp_generic_pl_file_attachment_email",
+						"type": "Expression"
+					},
+					"body": {
+						"value": "{\"FilePath\" : '@{variables('Full_File_Path')}',\n\"FileName\" : '@{variables('File_Name')}',\n\"Subject\":'@{variables('Subject')}',\n\"Environment\": '@{pipeline().globalParameters.Environment}'}",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Daily_Recon_Notebook",
+				"type": "DatabricksNotebook",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": "/Repos/Enterprise_Data/Dev/Databricks/Notebooks/Old_Framework/PBNA/Recon/PBNA_DataRecon_Daily",
+					"baseParameters": {
+						"Container": {
+							"value": "@pipeline().globalParameters.SourceContainer",
+							"type": "Expression"
+						},
+						"StorageAccount": {
+							"value": "@pipeline().globalParameters.SourceContainer",
+							"type": "Expression"
+						},
+						"ArchiveDir": {
+							"value": "@pipeline().parameters.Archive_Dir",
+							"type": "Expression"
+						},
+						"DataRecon": {
+							"value": "@pipeline().parameters.Data_Recon",
+							"type": "Expression"
+						},
+						"SourceSystem": {
+							"value": "@pipeline().parameters.Source_System",
+							"type": "Expression"
+						},
+						"YearMonthDay": {
+							"value": "@concat('YYYY=',formatDateTime(utcNow(),'yyyy'),'/','MM=',formatDateTime(utcNow(),'MM'),'/','DD=',formatDateTime(addDays(utcNow(),0),'dd'))",
+							"type": "Expression"
+						},
+						"Frequency": {
+							"value": "@pipeline().parameters.Frequency",
+							"type": "Expression"
+						},
+						"LoadType": {
+							"value": "@pipeline().parameters.Loadtype",
+							"type": "Expression"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_AzureDatabricks",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"Archive_Dir": {
+				"type": "string",
+				"defaultValue": "Tropicana/Retail/Inbound/Archived/PBNA"
+			},
+			"Data_Recon": {
+				"type": "string",
+				"defaultValue": "Tropicana/Retail/Inbound/DataRecon"
+			},
+			"Source_System": {
+				"type": "string",
+				"defaultValue": "PBNA"
+			},
+			"Frequency": {
+				"type": "string",
+				"defaultValue": "Daily"
+			},
+			"Loadtype": {
+				"type": "string",
+				"defaultValue": "Incremental"
+			}
+		},
+		"variables": {
+			"Full_File_Path": {
+				"type": "String"
+			},
+			"File_Name": {
+				"type": "String"
+			},
+			"Subject": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "PBNA"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-04-07T16:03:03Z"
+	}
+}
